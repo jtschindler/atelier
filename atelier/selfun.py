@@ -38,7 +38,7 @@ class ClippedFunction(object):
 
 
 class QsoSelectionFunction(object):
-    """Quasar selection function class
+    """Quasar selection function class.
 
     This class provides the basic capabilities for quasar selection functions.
 
@@ -312,10 +312,11 @@ class QsoSelectionFunctionConst(QsoSelectionFunction):
 
 
 class QsoSelectionFunctionGrid(QsoSelectionFunction):
-    """Gridded quasar selection function class
+    """Gridded quasar selection function class.
 
     This class provides the capabilities for a quasar selection function
-    defined by a grid of values. It the base class evaluate and call methods
+    calculated on a magnitude redshift grid of sources defined by a query of
+    the source properties. It updates the base class evaluate and call methods
     accordingly.
 
     Attributes

@@ -1,37 +1,36 @@
 #!/usr/bin/env python
 
-import numpy as np
-
-import emcee
-
-import utils as ut
-
-from scipy import optimize
-
-import time
-
-from scipy.interpolate import interp1d
-
-from scipy import integrate
-
-import matplotlib.pyplot as plt
-
-from simqso import lumfun
-
-from astropy.cosmology import FlatLambdaCDM
 
 import os
-
-os.environ["OMP_NUM_THREADS"] = "1"
+import time
+import emcee
+import numpy as np
+from scipy import optimize
 
 from multiprocessing import Pool
+
+import atelier.lumfun as lumfun
+
+os.environ["OMP_NUM_THREADS"] = "1"
 
 
 # The prior and probability need to be defined globally to allow for
 # multiprocessing.
 
 def log_prior(theta, parameters):
+    """ Logarithmic prior function for luminosity function maximum likelihood
+     estimation (MLE) using emcee in multiprocessing mode.
+
+    :param theta:
+    :param parameters: Dictionary of parameters used in MLE. The
+     Parameter.bounds attribute is used to keep the fit within the
+     pre-defined parameter boundaries (bounds).
+    :type parameters: dict(atelier.lumfun.Parameter)
+    :return: Logarithmic prior
+    :rtype: float
+    """
     # Define an uninformed prior for now, possibly change later, generalize
+
     within_bounds = []
 
     for idx, value in enumerate(theta):
@@ -52,12 +51,37 @@ def log_prior(theta, parameters):
 def log_probability(theta, lumfun=None, lum_range=None,
                     redsh_range=None, surveys=None, dVdzdO=None, log_prior=None,
                     use_prior=True):
+    """ Logarithmic probability for luminosity function maximum likelihood
+    estimation (MLE) using emcee in multiprocessing mode.
+
+    :param theta:
+    :param lumfun: Luminosity function model
+    :type lumfun: atelier.lumfun.LuminosityFunction (or children classes)
+    :param lum_range: Luminosity range
+    :type lum_range: tuple
+    :param redsh_range: Redshift range
+    :type redsh_range: tuple
+    :param surveys: List of surveys
+    :type surveys: list(atelier.survey.Survey)
+    :param dVdzdO: Differential comoving solid volume element
+    :type dVdzdO: function
+    :param log_prior: Functiond describing the logarithmic prior
+    :type log_prior:
+    :param use_prior: Boolean to indicate whether the logarithmic prior
+     function will be used or strictly flat priors for all parameters will be
+     adopted.
+    :type use_prior: bool
+    :return: Logarithmic probability
+    :rtype: float
+    """
+
     if lumfun is None:
         raise ValueError('[ERROR] The luminosity function keyword argument '
                          '"lumfun" is None.')
 
     if use_prior:
-        # Get logarithmic prior
+        # Get logarithmic prior for the free parameters of the luminosity
+        # function class.
         lp = log_prior(theta, lumfun.free_parameters)
     else:
         lp = 0
@@ -68,6 +92,7 @@ def log_probability(theta, lumfun=None, lum_range=None,
     # Return negative infinity if prior is infinite
     if not np.isfinite(lp):
         return -np.inf
+
     # Calculate the logarithmic probability
     else:
         source_term = 0
@@ -98,20 +123,34 @@ def log_probability(theta, lumfun=None, lum_range=None,
 
 
 class LuminosityFunctionFit(object):
+    """
 
-    def __init__(self, lum_range, redsh_range, cosmology, surveys):
+    """
+
+    def __init__(self, lum_range, redsh_range, cosmology, surveys,
+                 emcee_samplers=None, emcee_nwalkers=50, emcee_steps=1000):
+        """
+        
+        :param lum_range:
+        :param redsh_range:
+        :param cosmology:
+        :param surveys:
+        :param emcee_samplers:
+        :param emcee_nwalkers:
+        :param emcee_steps:
+        """
 
         # Main class parameters set by input arguments
         self.cosmology = cosmology
         self.lum_range = lum_range
         self.redsh_range = redsh_range
         self.surveys = surveys
-        self.dVdzdO = ut.interp_dVdzdO(redsh_range, cosmology)
+        self.dVdzdO = lumfun.interp_dVdzdO(redsh_range, cosmology)
 
         # Emcee default parameters
-        self.samplers = None
-        self.nwalkers = 50
-        self.steps = 1000
+        self.samplers = emcee_samplers
+        self.nwalkers = emcee_nwalkers
+        self.steps = emcee_steps
 
         # Nelder-Mead simplex algorithm default parameters
         self.nelder_mead_kwargs = {'full_output': True,
