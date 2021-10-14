@@ -26,6 +26,7 @@ Welcome to atelier's documentation!
   selfun
   survey
   lumfunfit
+  kcorrection
 
 
 Indices and tables
