@@ -329,7 +329,7 @@ class KCorrectionGrid(KCorrection):
         :param title: Title of the plot
         :type title: string
         :param ylabel: String for the y-label of the plot.
-        :type ylabel : string
+        :type ylabel: string
         :param show_mad: Boolean to indicate whether to show the median
          absolute deviation of the K-correction instead of the mean/median
          values.
@@ -386,7 +386,7 @@ class KCorrectionGrid(KCorrection):
         :param mag_arr: Array of rest-frame (filter band) magnitudes for
          which the K-correction is evaluated over the given redshift array.
         :param ylabel: String for the y-label of the plot.
-        :type ylabel : string
+        :type ylabel: string
         :param save: Boolean to indicate whether to save the plot.
         :type save: bool
         :param save_filename: Path and name to save the plot.
@@ -394,7 +394,7 @@ class KCorrectionGrid(KCorrection):
         :param mag_label: Label for the magnitude
         :type mag_label: string
         :return: None
-        
+
         """
 
         # If no redshift array is given use the redshift range
