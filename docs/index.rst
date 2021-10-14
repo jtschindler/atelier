@@ -10,12 +10,22 @@ Welcome to atelier's documentation!
   :maxdepth: 2
   :caption: Contents:
 
+
+.. toctree::
+  :maxdepth: 1
+  :caption: Module introduction:
+
+  intro_lumfun.nblink
+  intro_lumfunfit.nblink
+
 .. toctree::
   :maxdepth: 1
   :caption: Module documentation:
 
   lumfun
   selfun
+  survey
+  lumfunfit
 
 
 Indices and tables

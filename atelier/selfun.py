@@ -3,20 +3,17 @@
 import numpy as np
 import pandas as pd
 
-from scipy.interpolate import RectBivariateSpline, SmoothBivariateSpline, \
-                              griddata
-from scipy.stats import binned_statistic_2d
-
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 from matplotlib import rc
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 
+from scipy.interpolate import RectBivariateSpline
+from scipy.stats import binned_statistic_2d
 
 
 # Tex font
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
-
 
 
 class ClippedFunction(object):
@@ -33,8 +30,6 @@ class ClippedFunction(object):
         return self.clip(self.fun(*args,**kwargs))
     def ev(self,*args,**kwargs):
         return self.clip(self.fun.ev(*args,**kwargs))
-
-
 
 
 class QsoSelectionFunction(object):
@@ -142,7 +137,6 @@ class QsoSelectionFunction(object):
         selfun_arr = self.evaluate(magmesh.ravel(), redshmesh.ravel())
         selfun_arr = np.reshape(selfun_arr, (redsh.shape[0], mag.shape[0])).T
 
-
         cax = ax.imshow(selfun_arr, vmin=0, vmax=1,
                         extent=[redsh_range[0],
                                 redsh_range[1],
@@ -176,7 +170,6 @@ class QsoSelectionFunction(object):
             fig.subplots_adjust(top=0.93)
 
         plt.show()
-
 
 
 class CompositeQsoSelectionFunction(QsoSelectionFunction):
@@ -245,7 +238,6 @@ class CompositeQsoSelectionFunction(QsoSelectionFunction):
         """
 
         return self.evaluate(mag, redsh)
-
 
 
 class QsoSelectionFunctionConst(QsoSelectionFunction):
@@ -353,8 +345,8 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
         :type redsh_bins: int
         :param selfungrid: Grid with selection function values
         :type selfungrid: np.ndarray
-        :param clip: Boolean to indicate whether to clip the output value of the selection
-        function between 0 and 1.
+        :param clip: Boolean to indicate whether to clip the output value of
+         the selection function between 0 and 1.
         :type clip: bool
         """
 
@@ -467,10 +459,8 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
 
         self.get_selfun_from_grid()
 
-
     def save(self):
         pass
-
 
     def load(self):
         pass

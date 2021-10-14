@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 
-
 import os
 import time
 import emcee
 import numpy as np
 from scipy import optimize
-
 from multiprocessing import Pool
 
 import atelier.lumfun as lumfun
@@ -21,7 +19,8 @@ def log_prior(theta, parameters):
     """ Logarithmic prior function for luminosity function maximum likelihood
      estimation (MLE) using emcee in multiprocessing mode.
 
-    :param theta:
+    :param theta: parameter vector
+    :type theta: list of parameter values
     :param parameters: Dictionary of parameters used in MLE. The
      Parameter.bounds attribute is used to keep the fit within the
      pre-defined parameter boundaries (bounds).
@@ -54,7 +53,13 @@ def log_probability(theta, lumfun=None, lum_range=None,
     """ Logarithmic probability for luminosity function maximum likelihood
     estimation (MLE) using emcee in multiprocessing mode.
 
-    :param theta:
+    The logarithmic probability implemented here goes back to the definition
+    of Marshall+1983 Equation 3.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/1983ApJ...269...35M/abstract
+
+    :param theta: parameter vector
+    :type theta: list of parameter values
     :param lumfun: Luminosity function model
     :type lumfun: atelier.lumfun.LuminosityFunction (or children classes)
     :param lum_range: Luminosity range
@@ -123,21 +128,48 @@ def log_probability(theta, lumfun=None, lum_range=None,
 
 
 class LuminosityFunctionFit(object):
-    """
+    """ Class that carries out maximum likelihood fits to a luminosity
+    function model using MCMC (emcee).
 
+    Attributes
+    ----------
+    lum_range : list(float, float)
+        Luminosity range for the luminosity function fit (2-element list).
+    redsh_range : list(float, float)
+        Redshift range for the luminosity function fit (2-element list).
+    cosmology : astropy.cosmology.Cosmology
+        Cosmology object
+    surveys : list(survey.Survey)
+        List of survey objects used in to fit the luminosity function model to.
+    emcee_sampler : emcee.EnsembleSampler
+        Emcee Ensemble sampler object. This attribute cannot be initialized
+        but is internally populated during the .run_mcmc or
+        .run_mcmc_multiprocess methods.
+    emcee_nwalker : int (default = 50)
+        Number of walkers for the emcee sampler.
+    emcee_steps : int (default = 1000)
+        Number of steps for the emcee sampler.
     """
 
     def __init__(self, lum_range, redsh_range, cosmology, surveys,
-                 emcee_samplers=None, emcee_nwalkers=50, emcee_steps=1000):
-        """
-        
-        :param lum_range:
-        :param redsh_range:
-        :param cosmology:
-        :param surveys:
-        :param emcee_samplers:
-        :param emcee_nwalkers:
-        :param emcee_steps:
+                 emcee_nwalkers=50, emcee_steps=1000):
+        """Initialize the LuminosityFunctionFit class.
+
+        :param lum_range: Luminosity range for the luminosity function fit
+         (2-element list).
+        :type lum_range: list(float, float)
+        :param redsh_range: Redshift range for the luminosity function fit
+         (2-element list).
+        :type redsh_range: list(float, float)
+        :param cosmology: Cosmology object
+        :type cosmology: astropy.cosmology.Cosmology
+        :param surveys: List of survey objects used in to fit the luminosity
+         function model to.
+        :type surveys: list(survey.Survey)
+        :param emcee_nwalkers: Number of walkers for the emcee sampler.
+        :type emcee_nwalkers: int (default = 50)
+        :param emcee_steps: Number of steps for the emcee sampler.
+        :type emcee_steps: int (default = 1000)
         """
 
         # Main class parameters set by input arguments
@@ -148,7 +180,7 @@ class LuminosityFunctionFit(object):
         self.dVdzdO = lumfun.interp_dVdzdO(redsh_range, cosmology)
 
         # Emcee default parameters
-        self.samplers = emcee_samplers
+        self.sampler = None
         self.nwalkers = emcee_nwalkers
         self.steps = emcee_steps
 
@@ -160,6 +192,18 @@ class LuminosityFunctionFit(object):
 
 # NOW GLOBALLY DEFINED FOR MULTIPROCESSING
     def log_prior(self, theta, parameters):
+        """ Logarithmic prior function for luminosity function maximum likelihood
+        estimation (MLE).
+
+        :param theta: parameter vector
+        :type theta: list of parameter values
+        :param parameters: Dictionary of parameters used in MLE. The
+         Parameter.bounds attribute is used to keep the fit within the
+         pre-defined parameter boundaries (bounds).
+        :type parameters: dict(atelier.lumfun.Parameter)
+        :return: Logarithmic prior
+        :rtype: float
+        """
 
         # Define an uninformed prior for now, possibly change later, generalize
         within_bounds = []
@@ -179,6 +223,22 @@ class LuminosityFunctionFit(object):
             return -np.inf
 
     def log_probability(self, theta, lumfun=None, use_prior=True):
+        """ Logarithmic probability for luminosity function maximum likelihood
+        estimation (MLE).
+
+        The logarithmic probability implemented here goes back to the definition
+        of Marshall+1983 Equation 3.
+
+        ADS reference: https://ui.adsabs.harvard.edu/abs/1983ApJ...269...35M/abstract
+
+        :param theta: parameter vector
+        :type theta: list of parameter values
+        :param lumfun: Luminosity function model
+        :type lumfun: atelier.lumfun.LuminosityFunction (or children classes)
+        :type use_prior: bool
+        :return: Logarithmic probability
+        :rtype: float
+        """
 
         if lumfun is None:
             raise ValueError('[ERROR] The luminosity function keyword argument '
@@ -229,6 +289,22 @@ class LuminosityFunctionFit(object):
 
 
     def run_mcmc(self, lumfun, initial_guess=None, nwalkers=None, steps=None):
+        """Run the emcee MCMC EnsembleSampler to fit the luminosity function
+        model to the survey data using maximum likelihood estimation.
+
+        :param lumfun: Luminosity function model
+        :type lumfun: atelier.lumfun.LuminosityFunction (or children classes)
+        :param initial_guess: Initial guess of the free parameters (ordered
+         as in the luminosity function model.
+        :type initial_guess: list(float) (default = None)
+        :param nwalkers: Number of walkers for the emcee sampler overriding (
+         not overwriting) the class attribute emcee_nwalkers.
+        :type nwalkers: int (default = None)
+        :param steps: Number of steps for the emcee sampler overriding (
+         not overwriting) the class attribute emcee_nwalkers.
+        :type steps: int (default = None)
+        :return: None
+        """
 
         if nwalkers is None:
             nwalkers = self.nwalkers
@@ -251,16 +327,35 @@ class LuminosityFunctionFit(object):
                   'dVdzdO': self.dVdzdO,
                   'log_prior': log_prior}
 
-
-        self.sampler =  self.sampler = emcee.EnsembleSampler(nwalkers, ndim,
-                                                 log_probability,
-                                                 kwargs=kwargs)
+        self.sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
+                                             kwargs=kwargs)
 
         self.sampler.run_mcmc(pos, steps, progress=True)
 
 
     def run_mcmc_multiprocess(self, lumfun, initial_guess=None,
                               nwalkers=None, steps=None, processes=None):
+        """Run the emcee MCMC EnsembleSampler to fit the luminosity function
+        model to the survey data using maximum likelihood estimation in
+        multiprocessing mode.
+
+        :param lumfun: Luminosity function model
+        :type lumfun: atelier.lumfun.LuminosityFunction (or children classes)
+        :param initial_guess: Initial guess of the free parameters (ordered
+         as in the luminosity function model.
+        :type initial_guess: list(float) (default = None)
+        :param nwalkers: Number of walkers for the emcee sampler overriding (
+         not overwriting) the class attribute emcee_nwalkers.
+        :type nwalkers: int (default = None)
+        :param steps: Number of steps for the emcee sampler overriding (
+         not overwriting) the class attribute emcee_nwalkers.
+        :type steps: int (default = None)
+        :param processes: Number of processes for multiprocessing. The
+         default value of 'None' will use the maximum number determinded by
+         the multiprocessing package.
+        :type processes: int (default = None)
+        :return:
+        """
 
         if nwalkers is None:
             nwalkers = self.nwalkers
@@ -294,15 +389,26 @@ class LuminosityFunctionFit(object):
             self.sampler.run_mcmc(pos, steps, progress=True)
             end = time.time()
             multi_time = end - start
-            print("Multiprocessing took {0:.1f} seconds".format(multi_time))
+            print("[INFO] Multiprocessing took {0:.1f} seconds".format(
+                multi_time))
 
-    def negative_log_likelihood(self, theta, lumfun=None):
+    def negative_log_likelihood(self, theta, lumfun):
+        """Return the negative logarithmic likelihood for a set of parameters
+        'theta' and a luminosity function model 'lumfun' using the default
+        logarithmic likelihood definition.
+
+        :param theta: parameter vector
+        :type theta: list of parameter values
+        :param lumfun: Luminosity function model
+        :type lumfun: atelier.lumfun.LuminosityFunction (or children classes)
+        :return: Negative logarithmic likelihood
+        :rtype: float
+        """
 
         return - self.log_probability(self, theta, lumfun=lumfun)
 
 
     def run_NelderMead_simplex(self, lumfun, initial_guess=None, **kwargs):
-        """This has not been tested successfully, yet!"""
 
         if initial_guess is None:
             parameters = lumfun.get_free_parameters()

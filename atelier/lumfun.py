@@ -586,7 +586,7 @@ class LuminosityFunction(object):
         per steradian per redshift.
 
         :param redsh: Redshift
-        :type redsh: float or numpy.ndarray
+        :type redsh: float
         :param lum_range: Luminosity range
         :type lum_range: tuple
         :param dVdzdO: Differential comoving solid volume element (default =
@@ -617,7 +617,7 @@ class LuminosityFunction(object):
         per Mpc^3.
 
         :param redsh: Redshift
-        :type redsh: float or numpy.ndarray
+        :type redsh: float
         :param lum_range: Luminosity range
         :type lum_range: tuple
         :param kwargs:
@@ -1227,10 +1227,10 @@ class McGreer2018QLF(DoublePowerLawLF):
         log_phi_star_z6 = Parameter(-8.97, 'log_phi_star_z6', one_sigma_unc=[
             0.18,
                                                                        0.15])
-        lum_star = Parameter(-27.47, 'log_lum_star', one_sigma_unc=[
+        lum_star = Parameter(-27.47, 'lum_star', one_sigma_unc=[
             0.26, 0.22])
-        alpha = Parameter(-1.97, 'gamma_one', one_sigma_unc=[0.09, 0.09])
-        beta = Parameter(-4.0, 'gamma_two', one_sigma_unc=None)
+        alpha = Parameter(-1.97, 'alpha', one_sigma_unc=[0.09, 0.09])
+        beta = Parameter(-4.0, 'beta', one_sigma_unc=None)
 
         k = Parameter(-0.47, 'k')
 
