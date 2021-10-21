@@ -4,6 +4,7 @@ import numpy as np
 from astropy import units
 from scipy import integrate
 from scipy.interpolate import interp1d
+from astropy.cosmology import FlatLambdaCDM
 
 
 # Basic functionality needed for this class
@@ -1383,7 +1384,7 @@ class JiangLinhua2016QLF(DoublePowerLawLF):
 
         beta = Parameter(-2.8, 'beta', one_sigma_unc=None)
 
-        k = Parameter(-0.7, 'k')
+        k = Parameter(-0.72, 'k')
 
         z_ref = Parameter(6, 'z_ref')
 
@@ -1480,3 +1481,175 @@ class Matsuoka2018QLF(DoublePowerLawLF):
         """
 
         return phi_star_z6 * 10**(k * (redsh - z_ref))
+
+
+
+
+class BinnedLuminosityFunction(object):
+
+    def __init__(self, lum=None, lum_type=None, lum_unit=None,
+                 phi=None, log_phi=None, phi_unit=None,
+                 sigma_phi=None, sigma_log_phi=None, cosmology=None,
+                 redshift=None, redshift_range=None):
+
+        if lum is not None:
+            self.lum = lum
+
+            if lum_type is None:
+                raise ValueError('[ERROR] Luminosity type not specified!')
+            else:
+                self.lum_type = lum_type
+            if lum_unit is None:
+                raise ValueError('[ERROR] Luminosity unit not specified!')
+            else:
+                self.lum_unit = lum_unit
+
+        if phi is not None or log_phi is not None:
+
+            if phi_unit is None:
+                raise ValueError('[ERROR] Luminosity function unit not '
+                                 'specified!')
+
+            if phi is not None and log_phi is None:
+                self.phi = phi
+                self.log_phi = self._get_logphi_from_phi()
+            elif log_phi is not None and phi is None:
+                self.log_phi = log_phi
+                self.phi = self._get_phi()
+
+            elif log_phi is not None and phi is not None:
+                self.phi = phi
+                self.log_phi = log_phi
+
+        if sigma_phi is not None or sigma_log_phi is not None:
+
+            if sigma_phi is not None and sigma_log_phi is None:
+
+                self.sigma_phi = sigma_phi
+                self.sigma_log_phi = self._get_sigma_logphi_from_sigma_phi()
+
+            elif sigma_log_phi is not None and sigma_phi is None:
+
+                self.sigma_log_phi = sigma_log_phi
+                self.sigma_phi = self._get_sigma_phi_from_sigma_logphi()
+
+            else:
+                self.sigma_phi = sigma_phi
+                self.sigma_log_phi = sigma_log_phi
+
+        if cosmology is None:
+            raise ValueError('[ERROR] No cosmology specified!')
+        else:
+            self.cosmology = cosmology
+
+        self.redshift = redshift
+        self.redshift_range =redshift_range
+
+
+    def _get_logphi_from_phi(self):
+
+        return np.log10(self.phi)
+
+    def _get_phi_from_logphi(self):
+
+        return np.pow(10, self.log_phi)
+
+    def _get_sigma_logphi_from_sigma_phi(self):
+
+        pass
+
+    def _get_sigma_phi_from_sigma_logphi(self):
+        pass
+
+
+
+mcgreer2013_str82 = \
+      {'lum': np.array([-27.0, -26.45, -25.9, -25.35, -24.8, -24.25]),
+       'log_phi': np.array([-8.4, -7.84, -7.9, -7.53, -7.36, -7.14]),
+       'sigma_phi': np.array([2.81, 6.97, 5.92, 10.23, 11.51, 19.9])*1e-9,
+       'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+       'lum_type': 'M1450',
+       'lum_unit': units.mag,
+       'cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
+       'redshift': 4.9,
+       'redshift_range': [4.7, 5.1]
+       }
+
+mcgreer2013_dr7 = \
+       {'lum': np.array([-28.05, -27.55, -27.05, -26.55, -26.05]),
+        'log_phi': np.array([-9.45, -9.24, -8.51, -8.20, -7.9]),
+        'phi_unit': units.Mpc**-3 * units.mag**-1,
+        'lum_type': 'M1450',
+        'lum_unit': units.mag,
+        'sigma_phi': np.array([0.21, 0.26, 0.58, 0.91, 1.89])*1e-9,
+        'cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
+        'redshift': 4.9,
+        'redshift_range': [4.7, 5.1]
+        }
+
+mcgreer2018_main = \
+       {'lum': np.array([-28.55, -28.05, -27.55, -27.05, -26.55, -26.05]),
+        'log_phi': np.array([-9.90, -9.70, -8.89, -8.41, -8.10, -8.03]),
+        'phi_unit': units.Mpc**-3 * units.mag**-1,
+        'lum_type': 'M1450',
+        'lum_unit': units.mag,
+        'sigma_phi': np.array([0.12, 0.14, 0.37, 0.72, 1.08, 1.74])*1e-9,
+        'cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
+        'redshift': 5,
+        'redshift_range': [4.7, 5.3]
+        }
+
+mcgreer2018_s82 = \
+       {'lum': np.array([-27.00, -26.45, -25.90, -25.35, -24.80, -24.25]),
+        'log_phi': np.array([-8.06, -7.75, -8.23, -7.47, -7.24, -7.22]),
+        'phi_unit': units.Mpc**-3 * units.mag**-1,
+        'lum_type': 'M1450',
+        'lum_unit': units.mag,
+        'sigma_phi': np.array([5.57, 6.97, 3.38, 10.39, 13.12, 21.91])*1e-9,
+        'cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
+        'redshift': 5,
+        'redshift_range': [4.7, 5.3]
+        }
+
+mcgreer2018_cfhtls_wide = \
+       {'lum': np.array([-26.35, -25.25, -24.35, -23.65, -22.90]),
+        'log_phi': np.array([-8.12, -7.56, -7.25, -7.32, -7.32]),
+        'phi_unit': units.Mpc**-3 * units.mag**-1,
+        'lum_type': 'M1450',
+        'lum_unit': units.mag,
+        'sigma_phi': np.array([4.34, 12.70, 18.05, 23.77, 28.24])*1e-9,
+        'cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
+        'redshift': 5,
+        'redshift_range': [4.7, 5.3]
+        }
+
+matsuoka2018 =  \
+       {'lum': np.array([-22, -22.75, -23.25, -23.75, -24.25, -24.75, -25.25,
+                         -25.75, -26.25, -26.75, -27.5, -29]),
+        'phi': np.array([16.2, 23.0, 10.9, 8.3, 6.6, 7.0, 4.6, 1.33, 0.9, 0.58,
+                         0.242, 0.0079])*1e-9,
+        'phi_unit': units.Mpc**-3 * units.mag**-1,
+        'lum_type': 'M1450',
+        'lum_unit': units.mag,
+        'sigma_phi': np.array([16.2, 8.1, 3.6, 2.6, 2.0, 1.7, 1.2,
+                                   0.6, 0.32, 0.17, 0.061, 0.0079])*1e-9,
+        'cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+        'redshift': 6.1,
+        'redshift_range': [5.7, 6.5]
+        }
+
+
+wangfeige2019 =  \
+       {'lum': np.array([-22, -22.75, -23.25, -23.75, -24.25, -24.75, -25.25,
+                         -25.75, -26.25, -26.75, -27.5, -29]),
+        'phi': np.array([16.2, 23.0, 10.9, 8.3, 6.6, 7.0, 4.6, 1.33, 0.9, 0.58,
+                         0.242, 0.0079])*1e-9,
+        'phi_unit': units.Mpc**-3 * units.mag**-1,
+        'lum_type': 'M1450',
+        'lum_unit': units.mag,
+        'sigma_phi': np.array([16.2, 8.1, 3.6, 2.6, 2.0, 1.7, 1.2,
+                                   0.6, 0.32, 0.17, 0.061, 0.0079])*1e-9,
+        'cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+        'redshift': 6.7,
+        'redshift_range': [6.45, 7.05]
+        }
