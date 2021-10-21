@@ -1299,7 +1299,10 @@ class WangFeige2019SPLQLF(SinglePowerLawLF):
 
         param_functions = {}
 
-        super(WangFeige2019SPLQLF, self).__init__(parameters, param_functions)
+        lum_type = 'M1450'
+
+        super(WangFeige2019SPLQLF, self).__init__(parameters, param_functions,
+                                                  lum_type=lum_type)
 
 
 class WangFeige2019DPLQLF(DoublePowerLawLF):
@@ -1339,7 +1342,10 @@ class WangFeige2019DPLQLF(DoublePowerLawLF):
 
         param_functions = {'phi_star': self.phi_star}
 
-        super(WangFeige2019DPLQLF, self).__init__(parameters, param_functions)
+        lum_type = 'M1450'
+
+        super(WangFeige2019DPLQLF, self).__init__(parameters, param_functions,
+                                                  lum_type=lum_type)
 
 
     @staticmethod
@@ -1397,7 +1403,10 @@ class JiangLinhua2016QLF(DoublePowerLawLF):
 
         param_functions = {'phi_star': self.phi_star}
 
-        super(JiangLinhua2016QLF, self).__init__(parameters, param_functions)
+        lum_type = 'M1450'
+
+        super(JiangLinhua2016QLF, self).__init__(parameters, param_functions,
+                                                 lum_type=lum_type)
 
     @staticmethod
     def phi_star(redsh, phi_star_z6, k, z_ref):
@@ -1639,17 +1648,29 @@ matsuoka2018 =  \
         }
 
 
+# M0 M1 Z0 Z1 M1450_Mean M1450_err z_Mean N N_corr Phi Phi_err
+# -27.6 -26.9 6.45 7.05 -27.1849570034 0.198454192575 6.68253 4 6.57997180974 1.49806504375e-10 4.76706351322e-11
+# -26.9 -26.2 6.45 7.05 -26.4394997883 0.141104303161 6.70167 9 15.7066648272 3.5759432125e-10 7.57916215887e-11
+# -26.2 -25.5 6.45 7.05 -25.8306028526 0.265699553273 6.65747 4 36.3303873458 8.27135508817e-10 3.19637408061e-10
+
 wangfeige2019 =  \
-       {'lum': np.array([-22, -22.75, -23.25, -23.75, -24.25, -24.75, -25.25,
-                         -25.75, -26.25, -26.75, -27.5, -29]),
-        'phi': np.array([16.2, 23.0, 10.9, 8.3, 6.6, 7.0, 4.6, 1.33, 0.9, 0.58,
-                         0.242, 0.0079])*1e-9,
+       {'lum': np.array([-27.1849570034, -26.4394997883, -25.8306028526]),
+        'sigma_lum': np.array([0.198454192575, 0.141104303161, 0.265699553273]),
+
+        'lum_bins': np.array([[-27.6, -26.9], [-26.9, -26.2], [-26.2, -25.5]]),
+        'phi': np.array([1.49806504375e-10, 3.5759432125e-10,
+                         8.27135508817e-10]),
         'phi_unit': units.Mpc**-3 * units.mag**-1,
         'lum_type': 'M1450',
         'lum_unit': units.mag,
-        'sigma_phi': np.array([16.2, 8.1, 3.6, 2.6, 2.0, 1.7, 1.2,
-                                   0.6, 0.32, 0.17, 0.061, 0.0079])*1e-9,
+        'sigma_phi': np.array([4.76706351322e-11, 7.57916215887e-11,
+                               3.19637408061e-10]),
         'cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+        'redshift_mean': np.array([6.68253, 6.70167, 6.65747]),
         'redshift': 6.7,
         'redshift_range': [6.45, 7.05]
         }
+
+
+# Add Jiang2016
+# Add Willott 2010

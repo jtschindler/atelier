@@ -28,6 +28,7 @@ matplotlib.rcParams['ytick.minor.visible'] = True
 matplotlib.rcParams['xtick.top'] = True
 matplotlib.rcParams['ytick.right'] = True
 
+
 def test_plot():
     x = np.arange(0, 200, 0.1)
     y1 = 0.25*(x-100)**2
