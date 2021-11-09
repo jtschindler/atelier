@@ -6,7 +6,6 @@ from scipy import integrate
 from scipy.interpolate import interp1d
 from astropy.cosmology import FlatLambdaCDM
 
-
 # Basic functionality needed for this class
 def interp_dVdzdO(redsh_range, cosmo):
     """Interpolate the differential comoving solid volume element
@@ -188,7 +187,8 @@ class LuminosityFunction(object):
     """
 
     def __init__(self, parameters, param_functions, main_parameters,
-                 lum_type=None, verbose=1):
+                 lum_type=None, cosmology=None, ref_cosmology=None,
+                 ref_redsh=None, verbose=1):
         """ Initialize the base luminosity function class.
         """
 
@@ -205,10 +205,17 @@ class LuminosityFunction(object):
 
         self._initialize_parameters_and_functions()
 
-
         self.free_parameters = self.get_free_parameters()
         self.free_parameter_names = list(self.free_parameters.keys())
 
+        self.cosmology = cosmology
+        self.ref_cosmology = ref_cosmology
+        self.ref_redsh = ref_redsh
+
+        if self.cosmology is not None and self.ref_cosmology is not \
+                None:
+            print('[INFO] Cosmology and reference cosmology are not the '
+                  'sample. Cosmological conversions will be applied.')
 
 
     def __call__(self, lum, redsh, parameters=None):
@@ -503,13 +510,12 @@ class LuminosityFunction(object):
         :rtype: float or numpy.ndarray
         """
 
-        return self.evaluate(lum, redsh) * dVdzdO(redsh) * selfun(lum,
+        return self.evaluate(lum, redsh) * dVdzdO(redsh) * selfun.evaluate(lum,
                                                                   redsh)
 
 
     def integrate_over_lum_redsh(self, lum_range, redsh_range, dVdzdO=None,
-                                 selfun=None,
-                                 cosmology=None, mode='fast', **kwargs):
+                                 selfun=None, cosmology=None, **kwargs):
         """Calculate the number of sources described by the luminosity function
         over a luminosity and redshift interval in units of per steradian.
 
@@ -526,17 +532,14 @@ class LuminosityFunction(object):
         :type selfun: atelier.selfun.QsoSelectionFunction
         :param cosmology: Cosmology (default = None)
         :type cosmology: astropy.cosmology.Cosmology
-        :param mode: String setting the integration mode (default='fast').
-            Only one mode ('fast') is currently implemented.
-        :type mode: string
         :param kwargs:
         :return: :math:`N = \int\int\Phi(L,z) (dV/(dz d\Omega)) dL dz`
         :rtype: float
         """
 
-        if mode != 'fast':
-            raise ValueError('[ERROR] Only a "fast" integration using a '
-                             'Romberg integration is currently available.')
+        # Sort input lum/redsh ranges
+        lum_range = np.sort(np.array(lum_range))
+        redsh_range = np.sort(np.array(redsh_range))
 
         # Get keyword arguments for the integration
         int_kwargs = {}
@@ -577,6 +580,98 @@ class LuminosityFunction(object):
                                                              **int_kwargs)
             outer_integral = integrate.romberg(inner_integral, *redsh_range,
                                                **int_kwargs)
+
+        return outer_integral
+
+    def integrate_over_lum_redsh_simpson(self, lum_range, redsh_range,
+                                       dVdzdO=None, selfun=None,
+                                 cosmology=None, initial_lum_bin_width=0.1,
+                                         initial_redsh_bin_width=0.05,
+                                         minimum_probability=1e-3,
+                                         **kwargs):
+        """Calculate the number of sources described by the luminosity function
+        over a luminosity and redshift interval in units of per steradian.
+
+        The integration is done on a grid using the Simpson rule.
+
+        This allows the selection function to be precalculated on the grid
+        values for speed up of the integration process.
+
+        This code is in large part adopted from
+        https://github.com/imcgreer/simqso/blob/master/simqso/lumfun.py
+        lines 591 and following.
+
+        Either a cosmology or dVdzdO have to be supplied.
+
+        :param lum_range: Luminosity range
+        :type lum_range: tuple
+        :param redsh_range: Redshift range
+        :type redsh_range: tuple
+        :param dVdzdO: Differential comoving solid volume element (default =
+            None)
+        :type dVdzdO: function
+        :param selfun: Selection function (default = None)
+        :type selfun: atelier.selfun.QsoSelectionFunction
+        :param cosmology: Cosmology (default = None)
+        :type cosmology: astropy.cosmology.Cosmology
+        :param kwargs:
+        :return: :math:`N = \int\int\Phi(L,z) (dV/(dz d\Omega)) dL dz`
+        :rtype: float
+        """
+
+        # Set up the interpolated differential comoving solid volume element
+        if dVdzdO is None and cosmology is not None:
+            dVdzdO = interp_dVdzdO(redsh_range, cosmology)
+        elif dVdzdO is None and cosmology is None:
+            raise ValueError(
+                '[ERROR] Either a cosmology or dVdzdO have to be supplied.')
+
+        # Sort input lum/redsh ranges
+        lum_range = np.sort(np.array(lum_range))
+        redsh_range = np.sort(np.array(redsh_range))
+
+        # Setting up the integration grid
+        num_lum_bins = int(np.diff(lum_range) / initial_lum_bin_width) + 1
+        num_redsh_bins = int(np.diff(redsh_range) / initial_redsh_bin_width) + 1
+
+        lum_edges = np.linspace(lum_range[0], lum_range[1], num_lum_bins)
+        redsh_edges = np.linspace(redsh_range[0], redsh_range[1],
+                                  num_redsh_bins)
+
+        lum_bin_width = np.diff(lum_edges)[0]
+        redsh_bin_width = np.diff(redsh_edges)[0]
+        diffvol_grid = dVdzdO(redsh_edges)
+
+        # Generate grid points
+        lum_points, redsh_points = np.meshgrid(lum_edges, redsh_edges,
+                                           indexing='ij')
+
+        # Calculate selection function grid
+        if selfun is not None:
+            if selfun.simps_grid is None:
+                selfun_grid = selfun.evaluate(lum_points, redsh_points)
+                selfun.simps_grid = selfun_grid
+            else:
+                selfun_grid = selfun.simps_grid
+
+            # selection_mask = selfun_grid > minimum_probability
+
+        # Calculate the luminosity function grid
+        lumfun_grid = self.evaluate(lum_points, redsh_points)
+
+        # Calculate the double integral via the Simpson rule
+
+        # Calculate selection function grid
+        if selfun is not None:
+            inner_integral = integrate.simps(lumfun_grid * selfun_grid *
+                                             diffvol_grid,
+                                             dx=redsh_bin_width)
+        else:
+            inner_integral = integrate.simps(lumfun_grid *
+                                             diffvol_grid,
+                                             dx=redsh_bin_width)
+
+        outer_integral = integrate.simps(inner_integral, dx=lum_bin_width)
 
         return outer_integral
 
@@ -645,7 +740,7 @@ class LuminosityFunction(object):
         """Sample the luminosity function over a given luminosity and
             redshift range.
 
-        This sampling routine is in large part inspired by
+        This sampling routine is in large part adopten from
         https://github.com/imcgreer/simqso/blob/master/simqso/lumfun.py
         , lines 219 and following.
 
@@ -763,7 +858,8 @@ class DoublePowerLawLF(LuminosityFunction):
 
     """
 
-    def __init__(self, parameters, param_functions, lum_type=None, verbose=1):
+    def __init__(self, parameters, param_functions, lum_type=None,
+                 cosmology=None, ref_cosmology=None, ref_redsh=None, verbose=1):
         """Initialization of the double power law luminosity function class.
         """
 
@@ -776,6 +872,9 @@ class DoublePowerLawLF(LuminosityFunction):
         super(DoublePowerLawLF, self).__init__(parameters, param_functions,
                                                self.main_parameters,
                                                lum_type=lum_type,
+                                               cosmology=cosmology,
+                                               ref_cosmology=ref_cosmology,
+                                               ref_redsh = ref_redsh,
                                                verbose=verbose)
 
     def evaluate(self, lum, redsh, parameters=None):
@@ -806,6 +905,29 @@ class DoublePowerLawLF(LuminosityFunction):
         lum_star = main_parameter_values['lum_star']
         alpha = main_parameter_values['alpha']
         beta = main_parameter_values['beta']
+
+        # TODO: Try to precalculate factors in init for better performance
+        if self.cosmology is not None and self.ref_cosmology is not \
+                None:
+
+
+            distmod_ref = self.ref_cosmology.distmod(self.ref_redsh)
+            distmod_cos = self.cosmology.distmod(self.ref_redsh)
+
+            # Convert luminosity according to new cosmology
+            if self.lum_type in ['M1450']:
+                self.cosm_lum_conv = distmod_ref.value - distmod_cos.value
+            else:
+                raise NotImplementedError(
+                    '[ERROR] Conversions for luminosity '
+                    'type {} are not implemented.'.format(
+                        self.lum_type))
+
+            self.cosm_density_conv = self.ref_cosmology.h ** 3 / \
+                                     self.cosmology.h ** 3
+
+            lum_star = lum_star + self.cosm_lum_conv
+            phi_star = phi_star * self.cosm_density_conv
 
         return mag_double_power_law(lum, phi_star, lum_star, alpha, beta)
 
@@ -873,7 +995,30 @@ class DoublePowerLawLF(LuminosityFunction):
         alpha = main_parameter_values['alpha']+1
         beta = main_parameter_values['beta']+1
 
-        # Reproducing Ians function (for now)
+        # Convert to different cosmology
+        # TODO: Move to integral function for better performance!
+        if self.cosmology is not None and self.ref_cosmology is not \
+                None:
+
+            distmod_ref = self.ref_cosmology.distmod(self.ref_redsh)
+            distmod_cos = self.cosmology.distmod(self.ref_redsh)
+
+            # Convert luminosity according to new cosmology
+            if self.lum_type in ['M1450']:
+                self.cosm_lum_conv = distmod_ref.value - distmod_cos.value
+            else:
+                raise NotImplementedError(
+                    '[ERROR] Conversions for luminosity '
+                    'type {} are not implemented.'.format(
+                        self.lum_type))
+
+            self.cosm_density_conv = self.ref_cosmology.h ** 3 / \
+                                     self.cosmology.h ** 3
+
+            lum_star = lum_star + self.cosm_lum_conv
+            phi_star = phi_star * self.cosm_density_conv
+
+        # Reproducing Ian's function (for now)
         c = 4. * np.pi * (10 * units.pc.to(units.cm)) ** 2
         LStar_nu = c * 10 ** (-0.4 * (lum_star + 48.6))
 
@@ -895,7 +1040,9 @@ class SinglePowerLawLF(LuminosityFunction):
 
     """
 
-    def __init__(self, parameters, param_functions, verbose=1):
+    def __init__(self, parameters, param_functions, lum_type=None,
+                 ref_cosmology=None, ref_redsh=None, cosmology=None,
+        verbose=1):
         """Initialize the single power law luminosity function class.
         """
 
@@ -904,7 +1051,11 @@ class SinglePowerLawLF(LuminosityFunction):
         # Initialize the parent class
         super(SinglePowerLawLF, self).__init__(parameters, param_functions,
                                                self.main_parameters,
-                                               verbose)
+                                               lum_type=lum_type,
+                                               ref_cosmology=ref_cosmology,
+                                               ref_redsh=ref_redsh,
+                                               cosmology=cosmology,
+                                               verbose=verbose)
 
     def evaluate(self, lum, redsh, parameters=None):
         """Evaluate the single power law as a function of magnitude ("lum")
@@ -939,6 +1090,29 @@ class SinglePowerLawLF(LuminosityFunction):
         phi_star = main_parameter_values['phi_star']
         lum_ref = main_parameter_values['lum_ref']
         alpha = main_parameter_values['alpha']
+
+        # TODO: Try to precalculate factors in init for better performance
+        if self.cosmology is not None and self.ref_cosmology is not \
+                None:
+
+
+            distmod_ref = self.ref_cosmology.distmod(self.ref_redsh)
+            distmod_cos = self.cosmology.distmod(self.ref_redsh)
+
+            # Convert luminosity according to new cosmology
+            if self.lum_type in ['M1450']:
+                self.cosm_lum_conv = distmod_ref.value - distmod_cos.value
+            else:
+                raise NotImplementedError(
+                    '[ERROR] Conversions for luminosity '
+                    'type {} are not implemented.'.format(
+                        self.lum_type))
+
+            self.cosm_density_conv = self.ref_cosmology.h ** 3 / \
+                                     self.cosmology.h ** 3
+
+            lum_ref = lum_ref + self.cosm_lum_conv
+            phi_star = phi_star * self.cosm_density_conv
 
         return mag_single_power_law(lum, phi_star, lum_ref, alpha)
 
@@ -999,6 +1173,30 @@ class SinglePowerLawLF(LuminosityFunction):
         phi_star = main_parameter_values['phi_star']
         lum_ref = main_parameter_values['lum_ref']
         alpha = main_parameter_values['alpha'] + 1
+
+        # Convert to different cosmology
+        # TODO: Move to integral function for better performance!
+        if self.cosmology is not None and self.ref_cosmology is not \
+                None:
+
+            distmod_ref = self.ref_cosmology.distmod(self.ref_redsh)
+            distmod_cos = self.cosmology.distmod(self.ref_redsh)
+
+            # Convert luminosity according to new cosmology
+            if self.lum_type in ['M1450']:
+                self.cosm_lum_conv = distmod_ref.value - distmod_cos.value
+            else:
+                raise NotImplementedError(
+                    '[ERROR] Conversions for luminosity '
+                    'type {} are not implemented.'.format(
+                        self.lum_type))
+
+            self.cosm_density_conv = self.ref_cosmology.h ** 3 / \
+                                     self.cosmology.h ** 3
+
+            lum_ref = lum_ref + self.cosm_lum_conv
+            phi_star = phi_star * self.cosm_density_conv
+
 
         # Reproducing Ians function (for now)
         c = 4. * np.pi * (10 * units.pc.to(units.cm)) ** 2
@@ -1220,7 +1418,7 @@ class McGreer2018QLF(DoublePowerLawLF):
 
     """
 
-    def __init__(self):
+    def __init__(self, cosmology=None):
         """ Initialize the McGreer+2018 type-I quasar UV luminosity function.
         """
 
@@ -1248,8 +1446,14 @@ class McGreer2018QLF(DoublePowerLawLF):
 
         lum_type = 'M1450'
 
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.272)
+        ref_redsh = 5.0
+
         super(McGreer2018QLF, self).__init__(parameters, param_functions,
-                                             lum_type=lum_type)
+                                             lum_type=lum_type,
+                                             cosmology=cosmology,
+                                             ref_cosmology=ref_cosmology,
+                                             ref_redsh=ref_redsh)
 
 
     @staticmethod
@@ -1284,7 +1488,7 @@ class WangFeige2019SPLQLF(SinglePowerLawLF):
     This implementation adopts the single power law fit described in Section 5.5
     """
 
-    def __init__(self):
+    def __init__(self, cosmology=None):
 
         phi_star = Parameter(6.34e-10, 'phi_star', one_sigma_unc=[1.73e-10,
                                                                   1.73e-10])
@@ -1301,8 +1505,14 @@ class WangFeige2019SPLQLF(SinglePowerLawLF):
 
         lum_type = 'M1450'
 
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 6.7
+
         super(WangFeige2019SPLQLF, self).__init__(parameters, param_functions,
-                                                  lum_type=lum_type)
+                                                  lum_type=lum_type,
+                                                  ref_cosmology=ref_cosmology,
+                                                  cosmology = cosmology,
+                                                  ref_redsh=ref_redsh)
 
 
 class WangFeige2019DPLQLF(DoublePowerLawLF):
@@ -1317,7 +1527,7 @@ class WangFeige2019DPLQLF(DoublePowerLawLF):
     This implementation adopts the double power law fit described in Section 5.5
     """
 
-    def __init__(self):
+    def __init__(self, cosmology=None):
         """Initialize the Wang+2019 type-I quasar UV luminosity function.
 
         """
@@ -1344,8 +1554,14 @@ class WangFeige2019DPLQLF(DoublePowerLawLF):
 
         lum_type = 'M1450'
 
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 6.7
+
         super(WangFeige2019DPLQLF, self).__init__(parameters, param_functions,
-                                                  lum_type=lum_type)
+                                                  lum_type=lum_type,
+                                                  ref_cosmology=ref_cosmology,
+                                                  ref_redsh=ref_redsh,
+                                                  cosmology=cosmology)
 
 
     @staticmethod
@@ -1378,7 +1594,7 @@ class JiangLinhua2016QLF(DoublePowerLawLF):
     This implementation adopts the double power law fit described in Section 4.5
     """
 
-    def __init__(self):
+    def __init__(self, cosmology=None):
         """Initialize the Jiang+2016 type-I quasar UV luminosity function.
         """
 
@@ -1405,8 +1621,14 @@ class JiangLinhua2016QLF(DoublePowerLawLF):
 
         lum_type = 'M1450'
 
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 6.05
+
         super(JiangLinhua2016QLF, self).__init__(parameters, param_functions,
-                                                 lum_type=lum_type)
+                                                 lum_type=lum_type,
+                                                 ref_cosmology=ref_cosmology,
+                                                 ref_redsh=ref_redsh,
+                                                 cosmology=cosmology)
 
     @staticmethod
     def phi_star(redsh, phi_star_z6, k, z_ref):
@@ -1467,12 +1689,12 @@ class Matsuoka2018QLF(DoublePowerLawLF):
 
         param_functions = {'phi_star': self.phi_star}
 
-        super(Matsuoka2018QLF, self).__init__(parameters, param_functions)
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 6.1
 
-    @staticmethod
-    def lum_star(mag_star):
-
-        return mag_star
+        super(Matsuoka2018QLF, self).__init__(parameters, param_functions,
+                                              ref_cosmology=ref_cosmology,
+                                              ref_redsh=ref_redsh)
 
     @staticmethod
     def phi_star(redsh, phi_star_z6, k, z_ref):
@@ -1494,12 +1716,140 @@ class Matsuoka2018QLF(DoublePowerLawLF):
 
 
 
+class Kulkarni2019QLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Kulkarni+2019 at z~1-6.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.1035K/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+    This implementation adopts the double power law fit presented in Table 3
+    ("Model 3").
+    """
+
+    def __init__(self):
+        """Initialize the Kulkarni+2019 type-I quasar UV luminosity function.
+        """
+
+        # ML fit parameters from of Model 3 from Table 3.
+        c0_0 = Parameter(-6.942, 'c0_0', one_sigma_unc=[0.086, 0.086])
+        c0_1 = Parameter(0.629, 'c0_1', one_sigma_unc=[0.045, 0.046])
+        c0_2 = Parameter(-0.086, 'c0_2', one_sigma_unc=[0.003, 0.003])
+
+        c1_0 = Parameter(-15.038, 'c1_0', one_sigma_unc=[0.150, 0.156])
+        c1_1 = Parameter(-7.046, 'c1_1', one_sigma_unc=[0.101, 0.100])
+        c1_2 = Parameter(0.772, 'c1_2', one_sigma_unc=[0.013, 0.013])
+        c1_3 = Parameter(-0.030, 'c1_3', one_sigma_unc=[0.001, 0.001])
+
+        c2_0 = Parameter(-2.888, 'c2_0', one_sigma_unc=[0.093, 0.097])
+        c2_1 = Parameter(-0.383, 'c2_1', one_sigma_unc=[0.041, 0.039])
+
+        c3_0 = Parameter(-1.602, 'c3_0', one_sigma_unc=[0.028, 0.029])
+        c3_1 = Parameter(-0.082, 'c3_1', one_sigma_unc=[0.009, 0.009])
+
+        parameters = {'c0_0': c0_0,
+                      'c0_1': c0_1,
+                      'c0_2': c0_2,
+                      'c1_0': c1_0,
+                      'c1_1': c1_1,
+                      'c1_2': c1_2,
+                      'c1_3': c1_3,
+                      'c2_0': c2_0,
+                      'c2_1': c2_1,
+                      'c3_0': c3_0,
+                      'c3_1': c3_1}
+
+        param_functions = {'phi_star': self.phi_star,
+                           'lum_star': self.lum_star,
+                           'alpha': self.alpha,
+                           'beta': self.beta}
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = None
+
+        super(Kulkarni2019QLF, self).__init__(parameters, param_functions,
+                                              lum_type=lum_type,
+                                              ref_cosmology=ref_cosmology,
+                                              ref_redsh=ref_redsh)
+
+
+    @staticmethod
+    def lum_star(redsh, c1_0, c1_1, c1_2, c1_3):
+        """
+
+        :param redsh:
+        :param c1_0:
+        :param c1_1:
+        :param c1_2:
+        :param c1_3:
+        :return:
+        """
+
+        return np.polynomial.chebyshev.chebval(1+redsh,
+                                               c=[c1_0, c1_1, c1_2, c1_3])
+
+    @staticmethod
+    def phi_star(redsh, c0_0, c0_1, c0_2):
+        """
+
+        :param redsh:
+        :param c0_0:
+        :param c0_1:
+        :param c0_2:
+        :return:
+        """
+
+        log_phi_star = np.polynomial.chebyshev.chebval(1+redsh,
+                                                       c=[c0_0, c0_1, c0_2])
+
+        return 10**log_phi_star
+
+    @staticmethod
+    def alpha(redsh, c2_0, c2_1):
+        """
+
+        :param redsh:
+        :param c2_0:
+        :param c2_1:
+        :return:
+        """
+
+        return np.polynomial.chebyshev.chebval(1+redsh,
+                                               c=[c2_0, c2_1])
+
+    @staticmethod
+    def beta(redsh, c3_0, c3_1):
+        """
+
+        :param redsh:
+        :param c3_0:
+        :param c3_1:
+        :return:
+        """
+
+        return np.polynomial.polynomial.polyval(1+redsh, c=[c3_0, c3_1])
+
+
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+#  BINNED QUASAR LUMINOSITY FUNCTION CLASS AND DATA BELOW
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+
 class BinnedLuminosityFunction(object):
 
     def __init__(self, lum=None, lum_type=None, lum_unit=None,
                  phi=None, log_phi=None, phi_unit=None,
-                 sigma_phi=None, sigma_log_phi=None, cosmology=None,
-                 redshift=None, redshift_range=None):
+                 sigma_phi=None, sigma_log_phi=None, ref_cosmology=None,
+                 redshift=None, redshift_range=None, cosmology=None, **kwargs):
+
+        self.redshift = redshift
+        self.redshift_range =redshift_range
 
         if lum is not None:
             self.lum = lum
@@ -1521,10 +1871,10 @@ class BinnedLuminosityFunction(object):
 
             if phi is not None and log_phi is None:
                 self.phi = phi
-                self.log_phi = self._get_logphi_from_phi()
+                self._get_logphi_from_phi()
             elif log_phi is not None and phi is None:
                 self.log_phi = log_phi
-                self.phi = self._get_phi()
+                self._get_phi_from_logphi()
 
             elif log_phi is not None and phi is not None:
                 self.phi = phi
@@ -1535,40 +1885,102 @@ class BinnedLuminosityFunction(object):
             if sigma_phi is not None and sigma_log_phi is None:
 
                 self.sigma_phi = sigma_phi
-                self.sigma_log_phi = self._get_sigma_logphi_from_sigma_phi()
+                self._get_sigma_logphi_from_sigma_phi()
 
             elif sigma_log_phi is not None and sigma_phi is None:
 
                 self.sigma_log_phi = sigma_log_phi
-                self.sigma_phi = self._get_sigma_phi_from_sigma_logphi()
+                self._get_sigma_phi_from_sigma_logphi()
 
             else:
                 self.sigma_phi = sigma_phi
                 self.sigma_log_phi = sigma_log_phi
 
-        if cosmology is None:
-            raise ValueError('[ERROR] No cosmology specified!')
+        if ref_cosmology is None:
+            raise ValueError('[ERROR] No reference cosmology specified!')
         else:
+            self.ref_cosmology = ref_cosmology
+
+        if cosmology is None:
+            print('[INFO] No cosmology specified, reference cosmology is '
+                  'used.')
+        else:
+            print('[INFO] Converting measurements from reference to specified'
+                  ' cosmology.')
+
             self.cosmology = cosmology
 
-        self.redshift = redshift
-        self.redshift_range =redshift_range
-
+            self._convert_to_cosmology()
 
     def _get_logphi_from_phi(self):
 
-        return np.log10(self.phi)
+        self.log_phi = np.log10(self.phi)
 
     def _get_phi_from_logphi(self):
 
-        return np.pow(10, self.log_phi)
+        self.phi = np.power(10, self.log_phi)
 
     def _get_sigma_logphi_from_sigma_phi(self):
 
-        pass
+        if self.sigma_phi.ndim == 1:
+            s_logphi_low = np.log10(self.phi-self.sigma_phi) - self.log_phi
+            s_logphi_upp = np.log10(self.phi+self.sigma_phi) - self.log_phi
+
+            self.sigma_log_phi = np.abs(np.array([s_logphi_low, s_logphi_upp]))
+
+        if self.sigma_phi.ndim == 2:
+
+            s_logphi_low = np.log10(self.phi - self.sigma_phi[0, :]) \
+                           - self.log_phi
+            s_logphi_upp = np.log10(self.phi + self.sigma_phi[1, :]) \
+                           - self.log_phi
+
+            self.sigma_log_phi = np.abs(np.array([s_logphi_low, s_logphi_upp]))
 
     def _get_sigma_phi_from_sigma_logphi(self):
-        pass
+
+        if self.sigma_log_phi.ndim == 1:
+            s_phi_low = 10**(-self.sigma_log_phi + self.log_phi) - self.phi
+            s_phi_upp = 10**(self.sigma_log_phi + self.log_phi) - self.phi
+
+            self.sigma_phi = np.abs(np.array([s_phi_low, s_phi_upp]))
+
+        if self.sigma_log_phi.ndim == 2:
+            s_phi_low = 10 ** (-self.sigma_log_phi[0, :] + self.log_phi) - \
+                        self.phi
+            s_phi_upp = 10 ** (self.sigma_log_phi[1, :] + self.log_phi) - \
+                        self.phi
+
+            self.sigma_phi = np.abs(np.array([s_phi_low, s_phi_upp]))
+
+    def _convert_to_cosmology(self):
+
+        # Luminosity conversion
+        distmod_ref = self.ref_cosmology.distmod(self.redshift)
+        distmod_cos = self.cosmology.distmod(self.redshift)
+
+        # Convert luminosity according to new cosmology
+        if self.lum_type in ['M1450']:
+            self.lum = self.lum + distmod_ref.value - distmod_cos.value
+        else:
+            raise NotImplementedError('[ERROR] Conversions for luminosity '
+                                      'type {} are not implemented.'.format(
+                                      self.lum_type))
+
+        # Convert density according to new cosmology
+        # Note: number density scales as h^-3
+        # phi
+        phi_h_inv = self.phi * self.ref_cosmology.h**3
+        self.phi = phi_h_inv / self.cosmology.h**3
+
+        self._get_logphi_from_phi()
+        # sigma_phi
+
+        sigma_phi_inv = self.sigma_phi * self.ref_cosmology.h**3
+        self.sigma_phi = sigma_phi_inv / self.cosmology.h**3
+
+        self._get_sigma_logphi_from_sigma_phi()
+
 
 
 
@@ -1579,7 +1991,7 @@ mcgreer2013_str82 = \
        'phi_unit': units.Mpc ** -3 * units.mag ** -1,
        'lum_type': 'M1450',
        'lum_unit': units.mag,
-       'cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
+       'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
        'redshift': 4.9,
        'redshift_range': [4.7, 5.1]
        }
@@ -1591,7 +2003,7 @@ mcgreer2013_dr7 = \
         'lum_type': 'M1450',
         'lum_unit': units.mag,
         'sigma_phi': np.array([0.21, 0.26, 0.58, 0.91, 1.89])*1e-9,
-        'cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
+        'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
         'redshift': 4.9,
         'redshift_range': [4.7, 5.1]
         }
@@ -1603,7 +2015,7 @@ mcgreer2018_main = \
         'lum_type': 'M1450',
         'lum_unit': units.mag,
         'sigma_phi': np.array([0.12, 0.14, 0.37, 0.72, 1.08, 1.74])*1e-9,
-        'cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
+        'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
         'redshift': 5,
         'redshift_range': [4.7, 5.3]
         }
@@ -1615,7 +2027,7 @@ mcgreer2018_s82 = \
         'lum_type': 'M1450',
         'lum_unit': units.mag,
         'sigma_phi': np.array([5.57, 6.97, 3.38, 10.39, 13.12, 21.91])*1e-9,
-        'cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
+        'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
         'redshift': 5,
         'redshift_range': [4.7, 5.3]
         }
@@ -1627,7 +2039,7 @@ mcgreer2018_cfhtls_wide = \
         'lum_type': 'M1450',
         'lum_unit': units.mag,
         'sigma_phi': np.array([4.34, 12.70, 18.05, 23.77, 28.24])*1e-9,
-        'cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
+        'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.272),
         'redshift': 5,
         'redshift_range': [4.7, 5.3]
         }
@@ -1642,7 +2054,7 @@ matsuoka2018 =  \
         'lum_unit': units.mag,
         'sigma_phi': np.array([16.2, 8.1, 3.6, 2.6, 2.0, 1.7, 1.2,
                                    0.6, 0.32, 0.17, 0.061, 0.0079])*1e-9,
-        'cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+        'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
         'redshift': 6.1,
         'redshift_range': [5.7, 6.5]
         }
@@ -1665,12 +2077,33 @@ wangfeige2019 =  \
         'lum_unit': units.mag,
         'sigma_phi': np.array([4.76706351322e-11, 7.57916215887e-11,
                                3.19637408061e-10]),
-        'cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+        'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
         'redshift_mean': np.array([6.68253, 6.70167, 6.65747]),
         'redshift': 6.7,
         'redshift_range': [6.45, 7.05]
         }
 
+jianglinhua2016 =  \
+       {'lum': np.array([-26.599, -27.199, -27.799, -28.699, -24.829,
+                         -25.929, -26.449]),
+        'phi': np.array([5.27E-10, 3.43E-10, 1.36E-10, 1.51E-11, 7.09E-09,
+                         3.16E-09, 1.06E-09]),
+        'phi_unit': units.Mpc**-3 * units.mag**-1,
+        'lum_type': 'M1450',
+        'lum_unit': units.mag,
+        'sigma_phi': np.array([1.7387E-01, 1.2838E-01, 5.0821E-02, 1.4950E-02,
+                               2.6535E+00, 1.2782E+00, 3.3034E-01]) * 1E-9,
+        'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+        'lum_median': [-26.78, -27.11, -27.61, -29.1, -24.73, -25.74, -26.27],
+        'survey': ['main_survey', 'main_survey', 'main_survey', 'main_survey',
+                   'stripe82', 'stripe82', 'overlap_region'],
+        'redshift': 6.05,
+        'redshift_range': [5.7, 6.4]
+        }
 
-# Add Jiang2016
 # Add Willott 2010
+
+# willott2010 = \
+
+
+# Add Jinyi Yang 2016

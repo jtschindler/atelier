@@ -49,7 +49,7 @@ def log_prior(theta, parameters):
 
 def log_probability(theta, lumfun=None, lum_range=None,
                     redsh_range=None, surveys=None, dVdzdO=None, log_prior=None,
-                    use_prior=True):
+                    use_prior=True, int_mode='romberg'):
     """ Logarithmic probability for luminosity function maximum likelihood
     estimation (MLE) using emcee in multiprocessing mode.
 
@@ -116,12 +116,26 @@ def log_probability(theta, lumfun=None, lum_range=None,
             source_term += np.sum(np.log(product))
 
             # Adding the luminosity function integral
-            lf_sum = lumfun.integrate_over_lum_redsh(lum_range,
-                                                     redsh_range,
-                                                     dVdzdO,
-                                                     selfun=survey.selection_function)
+            if int_mode == 'romberg':
+                lf_sum = lumfun.integrate_over_lum_redsh(lum_range,
+                                                         redsh_range,
+                                                         dVdzdO=dVdzdO,
+                                                         selfun=
+                                                         survey.selection_function)
+            elif int_mode == 'simpson':
 
-            lumfun_integral += survey.sky_area_srd * lf_sum
+                lf_sum = lumfun.integrate_over_lum_redsh_simpson(
+                    lum_range,
+                    redsh_range,
+                    dVdzdO=dVdzdO,
+                    selfun=survey.selection_function)
+            else:
+                raise NotImplementedError('[ERROR] Integration mode {} '
+                                          'is not implemented.'.format(
+                    int_mode))
+
+
+            lumfun_integral -= survey.sky_area_srd * lf_sum
 
         return source_term + lumfun_integral
 
@@ -222,7 +236,8 @@ class LuminosityFunctionFit(object):
         else:
             return -np.inf
 
-    def log_probability(self, theta, lumfun=None, use_prior=True):
+    def log_probability(self, theta, lumfun=None, use_prior=True,
+                        int_mode='romberg'):
         """ Logarithmic probability for luminosity function maximum likelihood
         estimation (MLE).
 
@@ -275,20 +290,33 @@ class LuminosityFunctionFit(object):
                 source_term += np.sum(np.log(product))
 
                 # Adding the luminosity function integral
-                lf_sum = lumfun.integrate_over_lum_redsh(self.lum_range,
-                                                         self.redsh_range,
-                                                         self.dVdzdO,
-                                                         selfun=survey.selection_function)
+                if int_mode == 'romberg':
+                    lf_sum = lumfun.integrate_over_lum_redsh(self.lum_range,
+                                                             self.redsh_range,
+                                                             dVdzdO=self.dVdzdO,
+                                                             selfun=
+                                                             survey.selection_function)
+                elif int_mode == 'simpson':
+
+                    lf_sum = lumfun.integrate_over_lum_redsh_simpson(
+                        self.lum_range,
+                        self.redsh_range,
+                        dVdzdO=self.dVdzdO,
+                        selfun=survey.selection_function)
+                else:
+                    raise NotImplementedError('[ERROR] Integration mode {} '
+                                              'is not implemented.'.format(
+                                               int_mode))
 
                 lumfun_integral += survey.sky_area_srd * lf_sum
-
 
             return source_term + lumfun_integral
 
 
 
 
-    def run_mcmc(self, lumfun, initial_guess=None, nwalkers=None, steps=None):
+    def run_mcmc(self, lumfun, initial_guess=None, nwalkers=None, steps=None,
+                 int_mode='romberg'):
         """Run the emcee MCMC EnsembleSampler to fit the luminosity function
         model to the survey data using maximum likelihood estimation.
 
@@ -325,7 +353,8 @@ class LuminosityFunctionFit(object):
                   'redsh_range': self.redsh_range,
                   'surveys': self.surveys,
                   'dVdzdO': self.dVdzdO,
-                  'log_prior': log_prior}
+                  'log_prior': log_prior,
+                  'int_mode': int_mode}
 
         self.sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
                                              kwargs=kwargs)

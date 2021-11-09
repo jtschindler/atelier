@@ -128,7 +128,6 @@ class QsoSelectionFunction(object):
                              'set the redsh_range keyword argument.')
 
         mag = np.arange(mag_range[0], mag_range[1], mag_res)
-        # mag = mag[::-1]
         redsh = np.arange(redsh_range[0], redsh_range[1], redsh_res)
 
         magmesh, redshmesh = np.meshgrid(mag, redsh)
@@ -372,6 +371,10 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
 
         self.redsh_mid = self.redsh_edges[:-1]+np.diff(self.redsh_edges)/2.
         self.mag_mid = self.mag_edges[:-1] + np.diff(self.mag_edges)/2.
+
+        # Simpson grid cache variable to calculate luminosity function fit
+        # with Simpson rule.
+        self.simps_grid = None
 
         if selfungrid:
             self.selfungrid = selfungrid
