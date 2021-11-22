@@ -87,7 +87,8 @@ class QsoSelectionFunction(object):
         return self.evaluate(mag, redsh)
 
     def plot_selfun(self, mag_res=0.01, redsh_res=0.01,
-                    mag_range=None, redsh_range=None, title=None):
+                    mag_range=None, redsh_range=None, title=None,
+                    levels=[0.2, 0.5, 0.70], level_color='k', cmap=cm.viridis):
         """Plot the selection function on a grid of redshift and magnitude.
 
         To calculate the map of the selection function the selection function is
@@ -107,13 +108,19 @@ class QsoSelectionFunction(object):
          function is evaluated. (default = None)
         :type redsh_range: tuple
         :param title: Title of the plot (default = None)
-        :type: string
+        :type title: string
+        :param levels: Values of contour levels to plot
+        :type levels: list(float)
+        :param level_color: Color for the level contours
+        :type level_color: string
+        :param cmap: Color map for the selection function
+        :type cmap: Matplotlib colormap
         :return:
         """
         # Set up figure
         fig = plt.figure(num=None, figsize=(5.5, 6), dpi=120)
         ax = fig.add_subplot(1, 1, 1)
-        fig.subplots_adjust(left=0.16, bottom=0.1, right=0.81, top=0.98)
+        fig.subplots_adjust(left=0.18, bottom=0.1, right=0.81, top=0.98)
 
         # Set up variables
         if mag_range is None and self.mag_range is not None:
@@ -142,12 +149,11 @@ class QsoSelectionFunction(object):
                                 mag_range[0],
                                 mag_range[1]],
                         aspect='auto',
-                        cmap=cm.viridis,
+                        cmap=cmap,
                         origin='lower')
 
-        levels = [0.2, 0.5, 0.70]
         CS = ax.contour(redsh, mag, selfun_arr, levels,
-                        colors='k')
+                        colors=level_color)
 
         if title is not None:
             cbar_ax = fig.add_axes([0.83, 0.095, 0.04, 0.83])
@@ -161,7 +167,7 @@ class QsoSelectionFunction(object):
 
         ax.tick_params(axis='both', which='major', labelsize=15)
         ax.clabel(CS, fontsize=9, inline=1)
-        ax.set_ylabel(r'$M_{1450}\,[\rm{mag}]$', fontsize=20)
+        ax.set_ylabel(r'$M_{1450}\,(\rm{mag})$', fontsize=20)
         ax.set_xlabel(r'$\rm{Redshift}\ z$', fontsize=20)
 
         if title is not None:
@@ -222,7 +228,7 @@ class CompositeQsoSelectionFunction(QsoSelectionFunction):
         selfun_values = [selfun.evaluate(mag, redsh) for selfun in
                          self.selfun_list]
 
-        return np.prod(np.array(selfun_values, dtype='float32'), axis=0)
+        return np.prod(np.vstack(selfun_values), axis=0)
 
     def __call__(self, mag, redsh):
         """Evaluate the composite selection function at magnitude and redshift.
