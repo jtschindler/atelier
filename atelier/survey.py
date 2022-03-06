@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from astropy import stats
+from scipy import integrate
 
 from atelier import lumfun
 
@@ -34,7 +35,9 @@ class Survey(object):
     """
 
     def __init__(self, obj_df, lum_colname, redsh_colname, sky_area,
-                 selection_function=None, poisson_conf_interval='root-n'):
+                 selection_function=None,
+                 lum_range=None, redsh_range=None,
+                 poisson_conf_interval='root-n'):
         """Initialize the Survey class.
 
         :param obj_df: Data frame with information on astronomical sources in the survey.
@@ -51,6 +54,12 @@ class Survey(object):
         :param selection_function: Selection function of the survey
          (default = None).
         :type selection_function: lumfun.selfun.QsoSelectionFunction
+        :param lum_range: Luminosity range for the luminosity function fit
+         (2-element list).
+        :type lum_range: list(float, float)
+        :param redsh_range: Redshift range for the luminosity function fit
+         (2-element list).
+        :type redsh_range: list(float, float)
         :param poisson_conf_interval: Interval for calculation of poission
          uncertainties on the binned luminosity function values.
         :type poisson_conf_interval: string
@@ -65,6 +74,10 @@ class Survey(object):
         self.obj_df = obj_df
         self.lum_colname = lum_colname
         self.redsh_colname = redsh_colname
+
+        # For calculating the luminosity function fit
+        self.lum_range = lum_range
+        self.redsh_range = redsh_range
 
         self.poisson_conf_interval = poisson_conf_interval
 
@@ -82,12 +95,15 @@ class Survey(object):
         self.obj_df['selprob'] = self.obj_selprob
 
 
+    def calc_binned_lumfun_PC2000(self, lum_edges, redsh_edges, cosmology,
+                           kcorrection=None, app_mag_lim=None, **kwargs):
+        """ Calculation of the binned luminosity function based on the method
+        outlined in Page & Carrera 2000
 
-    def calc_binned_lumfun(self, lum_edges, redsh_edges, cosmology,
-                           kcorrection, app_mag_lim=None):
-        """ My rewrite of Ian's routine using pandas groupby.
+        ADS Link: https://ui.adsabs.harvard.edu/abs/2000MNRAS.311..433P/abstract
 
-        The output is a pandas DataFrame
+        This function is very similar to the other method for calculating the
+        binned luminosity function below.
 
         :param lum_edges:
         :param redsh_edges:
@@ -96,6 +112,12 @@ class Survey(object):
         :param app_mag_lim:
         :return:
         """
+
+        # Get keyword arguments for the integration
+        int_kwargs = {}
+        int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
+        int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
+        int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
 
         # Sort the bin edges
         lum_edges = np.sort(lum_edges)
@@ -120,26 +142,27 @@ class Survey(object):
             'redsh_bin_mid': np.array([]),
             'lum_median': np.array([]),
             'redsh_median': np.array([]),
-            'raw_counts': np.array([]),
-            'corr_counts': np.array([]),
-            'corr_counts_unc': np.array([]),
+            'counts': np.array([]),
             'filled_bin': np.array([], dtype='bool'),
             'raw_phi': np.array([]),
             'phi': np.array([]),
             'phi_unc_low': np.array([]),
             'phi_unc_upp': np.array([]),
+            'bin_volume': np.array([]),
+            'bin_volume_corr': np.array([]),
         }
 
         # Iterate over all groups and calculate main properties
         for bins, group in gb:
 
-            # Calculate counts and corrected counts
+            print(bins)
+
+            # Calculate number counts and Poisson uncertainties
             # raw counts
-            raw_count = group.shape[0]
-            # corrected counts (sum of the inverse selection probability)
-            corr_count = np.sum(group['weights'])
-            # uncertainty (sum of the squared inverse selection probability)
-            corr_count_unc = np.sum(group['weights']**2)
+            count = group.shape[0]
+            # count uncertainty
+            count_unc = stats.poisson_conf_interval(
+                count, interval=self.poisson_conf_interval)
 
             # Calculate if bin is fully within survey magnitude limit
             if app_mag_lim is not None:
@@ -161,169 +184,95 @@ class Survey(object):
                 inbounds = None
 
             # Calculate bin volume
-            if inbounds > 0 or inbounds is None:
-                # Luminosity limit as a function of redshift
-                lum_limit = lambda redsh: np.clip(kcorrection.m2M(app_mag_lim,
-                                                                  redsh),
-                                            bins[0].left, bins[0].right)
-                bin_volume, _ = scipy.integrate.dblquad(
-                    lambda lum, redsh: dVdzdO(redsh), bins[1].left,
-                    bins[1].right,
-                    lambda redsh: bins[0].left, lum_limit)
+            if inbounds is None or (inbounds is not None and inbounds > 0):
+                # The calculation of the bin volume takes into account the
+                # survey selection function. This is different from the
+                # method below.
+
+                # Only use the dblquad integration if the bin is not fully
+                # covered in the survey app_mag_lim.
+                if inbounds is not None and inbounds < 4:
+                    lum_limit = lambda redsh: np.clip(kcorrection.m2M(
+                        app_mag_lim, redsh), bins[0].left, bins[0].right)
+
+                    # Double integral
+                    bin_volume, _ = scipy.integrate.dblquad(
+                        lambda lum, redsh: dVdzdO(
+                            redsh), bins[1].left, bins[1].right,
+                        lambda redsh: bins[0].left, lum_limit)
+
+                    # Double integral
+                    bin_volume_corr, _ = scipy.integrate.dblquad(
+                        lambda lum, redsh: dVdzdO(
+                            redsh) * self.selection_function.evaluate(lum,
+                                                                      redsh),
+                        bins[1].left,
+                        bins[1].right,
+                        lambda redsh: bins[0].left, lum_limit)
+                else:
+                    integrand = lambda lum, redsh: dVdzdO(redsh)
+
+                    integrand_corr = lambda lum, redsh: dVdzdO(redsh) * \
+                                    self.selection_function.evaluate(lum, redsh)
+
+
+                    inner_integral = lambda redsh: integrate.romberg(
+                        integrand, bins[0].left, bins[0].right, args=(redsh,),
+                        **int_kwargs)
+
+                    inner_integral_corr = lambda redsh: integrate.romberg(
+                        integrand_corr, bins[0].left, bins[0].right,
+                        args=(redsh,), **int_kwargs)
+
+                    bin_volume_corr = integrate.romberg(inner_integral_corr,
+                                                        bins[1].left,
+                                                        bins[1].right,
+                                                        **int_kwargs)
+
+                    bin_volume = integrate.romberg(inner_integral,
+                                                   bins[1].left,
+                                                   bins[1].right,
+                                                   **int_kwargs)
+
+                bin_volume_corr *= self.sky_area_srd
                 bin_volume *= self.sky_area_srd
 
-            else:
-
-                bin_volume = 0
 
             # Calculate binned luminosity function
-            if raw_count == 0 or bin_volume == 0:
+            if count == 0 or bin_volume == 0:
                 raw_phi = None
                 phi = None
                 phi_unc_low = None
                 phi_unc_upp = None
             else:
-                raw_phi = raw_count/bin_volume
-                phi = corr_count/bin_volume
 
-                # Calculate Poisson uncertainties on binned luminosity function
-                # Ians old code:
-                # sighi = (poisson_conf_interval(lf['countUnc'],
-                #                                interval=confinterval)[1]
-                #          - lf['countUnc'])
-                # lf['sigPhi'] = np.ma.divide(sighi, binVol)
-                # TODO
+                raw_phi = count / bin_volume
 
-                phi_unc = stats.poisson_conf_interval(
-                           corr_count_unc, interval=self.poisson_conf_interval)
-                print(phi_unc - corr_count_unc, corr_count)
-                phi_unc -= corr_count_unc
-                phi_unc /= bin_volume
+                phi = count / bin_volume_corr
+                count_unc = count_unc - count
+                phi_unc = count_unc / bin_volume_corr
                 phi_unc_low = phi_unc[0]
                 phi_unc_upp = phi_unc[1]
-
-                phi_unc = stats.poisson_conf_interval(
-                    corr_count, interval=self.poisson_conf_interval)
-                print(phi_unc - corr_count)
-
 
             prop_names = ['lum_bin_low', 'lum_bin_upp',
                           'redsh_bin_low', 'redsh_bin_upp',
                           'lum_bin_mid', 'redsh_bin_mid',
                           'lum_median', 'redsh_median',
-                          'raw_counts', 'corr_counts', 'corr_counts_unc',
-                          'filled_bin', 'raw_phi', 'phi', 'phi_unc_low',
-                          'phi_unc_upp']
+                          'counts', 'raw_phi',
+                          'filled_bin', 'phi', 'phi_unc_low',
+                          'phi_unc_upp', 'bin_volume', 'bin_volume_corr']
 
             props = [bins[0].left, bins[0].right,
                      bins[1].left, bins[1].right,
                      bins[0].mid, bins[1].mid,
                      group[self.lum_colname].median(),
                      group[self.redsh_colname].median(),
-                     raw_count, corr_count, corr_count_unc,
-                     filled, raw_phi, phi, phi_unc_low, phi_unc_upp]
+                     count, raw_phi,
+                     filled, phi, phi_unc_low, phi_unc_upp,
+                     bin_volume, bin_volume_corr]
 
             for idx, name in enumerate(prop_names):
                 result_dict[name] = np.append(result_dict[name], props[idx])
 
         return pd.DataFrame(result_dict)
 
-    # def calc_binned_lumfun_old(self, lum_edges, redsh_edges, cosmology,
-    #                        kcorrection, app_mag_lim):
-    #     """
-    #     Ian's old code rewritten!
-    #     :return:
-    #     """
-    #
-    #     lum_edges = np.sort(lum_edges)
-    #     redsh_edges = np.sort(redsh_edges)
-    #
-    #     dVdzdO = lumfun.interp_dVdzdO([redsh_edges[0], redsh_edges[-1]],
-    #                                    cosmology)
-    #
-    #     lum_bin_mid = lum_edges[:-1] + np.diff(lum_edges)/2.
-    #     redsh_bin_mid = redsh_edges[:-1] + np.diff(redsh_edges)/2.
-    #
-    #     print('lum_edges: ', lum_edges)
-    #     print('redsh_edges: ', redsh_edges)
-    #
-    #     print('lum_bins: ', lum_bin_mid)
-    #     print('redsh_bins: ', redsh_bin_mid)
-    #
-    #     lumfun_shape = lum_bin_mid.shape + redsh_bin_mid.shape
-    #
-    #     # Bin survey sources
-    #     lum_i = np.digitize(self.obj_lum, lum_edges) - 1
-    #     redsh_i = np.digitize(self.obj_redsh, redsh_edges) - 1
-    #     # Calc which sources are included in the bins
-    #     incl_idx = np.where((lum_i >= 0) * (lum_i < len(lum_bin_mid)) &
-    #                         (redsh_i >= 0) & (redsh_i < len(redsh_bin_mid)))
-    #
-    #     # Initialize result table
-    #     lum_bin_med = np.zeros(lumfun_shape)
-    #     redsh_bin_med = np.zeros(lumfun_shape)
-    #     raw_counts = np.zeros(lumfun_shape)
-    #     corr_counts = np.zeros(lumfun_shape)
-    #     count_uncertainty = np.zeros(lumfun_shape)
-    #     filled = np.zeros(lumfun_shape)
-    #
-    #     # Calculate median redshift per bin
-    #     # TODO
-    #
-    #     # Calculate the median luminosity per bin
-    #
-    #     # Count the sources within the bins
-    #     # (with and without selection probabilities)
-    #     np.add.at(raw_counts, (lum_i[incl_idx], redsh_i[incl_idx]),
-    #               1)
-    #     np.add.at(corr_counts, (lum_i[incl_idx], redsh_i[incl_idx]),
-    #               self.obj_weights[incl_idx])
-    #     np.add.at(count_uncertainty, (lum_i[incl_idx], redsh_i[incl_idx]),
-    #               self.obj_weights[incl_idx] ** 2)
-    #
-    #     # Calculate whether the bins are fully covered by the survey
-    #     # TODO: K-correction necessary for this step!
-    #     # Ian's code below
-    #     # ----------------------------------------------------------------------
-    #     # identify which bins are within the flux limit by converting the
-    #     # the luminosity bins to fluxes
-    #     Mbounds, zbounds = np.meshgrid(lum_edges, redsh_edges, indexing='ij')
-    #     mbounds = kcorrection.M2m(Mbounds, zbounds)
-    #     # if M is outside the definition of the k-correction, m2M returns
-    #     # nan. This prevents a warning from the comparison to nan.
-    #     mbounds[np.isnan(mbounds)] = np.inf
-    #     inbounds = mbounds < app_mag_lim
-    #     print('mbounds:', mbounds)
-    #     print('inbounds:', inbounds.shape, inbounds[0].shape)
-    #
-    #     # this sums the bin edges 2x2:
-    #     #   4=full covg, 0=no covg, otherwise partial
-    #     inbounds = scipy.ndimage.filters.convolve(inbounds[0].astype(int),
-    #                                               np.ones((2, 2)))[:-1, :-1]
-    #     # ----------------------------------------------------------------------
-    #     filled[:] = (inbounds == 4)
-    #
-    #     bin_volume = np.zeros(lumfun_shape)
-    #
-    #
-    #
-    #     for i, j in zip(*np.where(inbounds > 0)):
-    #         print(i, j)
-    #         lum_lim = lambda z: np.clip(kcorrection.m2M(app_mag_lim, z),
-    #                                  lum_edges[i], lum_edges[i + 1])
-    #         bin_volume[i, j], _ = scipy.integrate.dblquad(
-    #             lambda M, z: dVdzdO(z), redsh_edges[j], redsh_edges[j + 1],
-    #                                   lambda z: lum_edges[i], lum_lim)
-    #
-    #     # Calculate luminosity function
-    #     mask = (raw_counts == 0) | (bin_volume == 0)
-    #     bin_volume = np.ma.array(bin_volume * self.sky_area_srd, mask=mask)
-    #
-    #     phi = np.ma.divide(corr_counts, bin_volume)
-    #     raw_phi = np.ma.divide(raw_counts, bin_volume)
-    #
-    #
-    #     # Output is done per redshift bin
-    #
-    #     return raw_counts, corr_counts, count_uncertainty, filled, raw_phi, \
-    #            phi, bin_volume

@@ -31,11 +31,11 @@ rc('text', usetex=True)
 #         return self.ev(xx.ravel(),yy.ravel()).reshape(len(x),len(y))
 
 class Interpolator(object):
-    def __init__(self,x,y,z):
-        self.points = np.array([x,y]).T
+    def __init__(self, x, y, z):
+        self.points = np.array([x, y]).T
         self.values = z
     def ev(self,x,y):
-        rv = griddata(self.points,self.values, (x, y), method='linear')
+        rv = griddata(self.points, self.values, (x, y), method='linear')
         return rv
     def __call__(self,x,y):
         return self.ev(x, y)
@@ -153,6 +153,8 @@ class KCorrectionPL(KCorrection):
         super(KCorrectionPL, self).__init__(cosmology)
 
         self.slope = slope
+
+# TODO inverse needs to be correctly implemented here!
 
     def evaluate(self, mag, redsh, inverse=False):
         """Evaluate the K-correction for an object of given apparent

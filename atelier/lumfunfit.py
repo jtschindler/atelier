@@ -87,12 +87,12 @@ def log_probability(theta, lumfun=None, lum_range=None,
     if use_prior:
         # Get logarithmic prior for the free parameters of the luminosity
         # function class.
-        lp = log_prior(theta, lumfun.free_parameters)
+        lp = log_prior(theta, lumfun.get_free_parameters())
     else:
         lp = 0
 
     # Consider moving this to a selection function class
-    minimum_probability = 1e-3
+    minimum_probability = 1e-4
 
     # Return negative infinity if prior is infinite
     if not np.isfinite(lp):
@@ -107,6 +107,10 @@ def log_probability(theta, lumfun=None, lum_range=None,
         lumfun.update_free_parameter_values(theta)
 
         for survey in surveys:
+
+            lum_range = survey.lum_range
+            redsh_range = survey.redsh_range
+
             # Adding the source term contribution
             idx = np.where(survey.obj_selprob > minimum_probability)
 
@@ -133,7 +137,6 @@ def log_probability(theta, lumfun=None, lum_range=None,
                 raise NotImplementedError('[ERROR] Integration mode {} '
                                           'is not implemented.'.format(
                     int_mode))
-
 
             lumfun_integral -= survey.sky_area_srd * lf_sum
 
@@ -281,6 +284,9 @@ class LuminosityFunctionFit(object):
 
             for survey in self.surveys:
 
+                lum_range = survey.lum_range
+                redsh_range = survey.redsh_range
+
                 # Adding the source term contribution
                 idx = np.where(survey.obj_selprob > minimum_probability)
 
@@ -291,16 +297,16 @@ class LuminosityFunctionFit(object):
 
                 # Adding the luminosity function integral
                 if int_mode == 'romberg':
-                    lf_sum = lumfun.integrate_over_lum_redsh(self.lum_range,
-                                                             self.redsh_range,
+                    lf_sum = lumfun.integrate_over_lum_redsh(lum_range,
+                                                             redsh_range,
                                                              dVdzdO=self.dVdzdO,
                                                              selfun=
                                                              survey.selection_function)
                 elif int_mode == 'simpson':
 
                     lf_sum = lumfun.integrate_over_lum_redsh_simpson(
-                        self.lum_range,
-                        self.redsh_range,
+                        lum_range,
+                        redsh_range,
                         dVdzdO=self.dVdzdO,
                         selfun=survey.selection_function)
                 else:

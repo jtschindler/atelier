@@ -210,6 +210,10 @@ class CompositeQsoSelectionFunction(QsoSelectionFunction):
         super(CompositeQsoSelectionFunction, self).__init__(mag_range=mag_range,
                                                         redsh_range=redsh_range)
 
+        # Simpson grid cache variable to calculate luminosity function fit
+        # with Simpson rule.
+        self.simps_grid = None
+
         self.selfun_list = selfun_list
 
     def evaluate(self, mag, redsh):
@@ -228,7 +232,7 @@ class CompositeQsoSelectionFunction(QsoSelectionFunction):
         selfun_values = [selfun.evaluate(mag, redsh) for selfun in
                          self.selfun_list]
 
-        return np.prod(np.vstack(selfun_values), axis=0)
+        return np.prod(selfun_values, axis=0)
 
     def __call__(self, mag, redsh):
         """Evaluate the composite selection function at magnitude and redshift.
@@ -285,9 +289,11 @@ class QsoSelectionFunctionConst(QsoSelectionFunction):
             return self.value
 
         elif isinstance(mag,np.ndarray) and isinstance(redsh, np.ndarray) and \
-            mag.shape[0] == redsh.shape[0]:
+            mag.shape == redsh.shape:
 
-            return np.array([self.value]*mag.shape[0], dtype='float32')
+            value_arr = np.ones_like(mag, dtype='float32')
+
+            return value_arr * self.value
 
         else:
             raise ValueError('[ERROR] Input values are neither floats or '
@@ -334,8 +340,9 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
 
     """
 
-    def __init__(self, mag_range, redsh_range, mag_bins,
-                 redsh_bins, selfungrid=None, clip=True):
+    def __init__(self, mag_range=None, redsh_range=None, mag_bins=None,
+                 redsh_bins=None, selfungrid=None, clip=True, filename=None,
+                 format='csv'):
         """Initialize the gridded quasar selection function.
 
         :param mag_range: Magnitude range over which the quasar selection
@@ -353,6 +360,11 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
         :param clip: Boolean to indicate whether to clip the output value of
          the selection function between 0 and 1.
         :type clip: bool
+        :param filename: Filename to load a saved QsoSelectionFunctionGrid from.
+        :type filename: string
+        :param format: File format of saved QsoSelectionFunctionGrid.
+        Currently implemented formats are: ".csv"
+        :type format: string
         """
 
         super(QsoSelectionFunctionGrid, self).__init__(mag_range=mag_range,
@@ -362,27 +374,42 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
 
         self.n_per_bin = None
         self.selection = None
-
-        self.mag_bins = mag_bins
-        self.redsh_bins = redsh_bins
-        self.redsh_range = redsh_range
         self.clip = clip
 
-        self.redsh_edges = np.linspace(redsh_range[0],
-                                          redsh_range[1],
-                                          redsh_bins+1, dtype='float32')
-        self.mag_edges = np.linspace(mag_range[0],
-                                        mag_range[1],
-                                        mag_bins+1, dtype='float32')
+        if filename is not None:
+            self.load(filename, format)
 
-        self.redsh_mid = self.redsh_edges[:-1]+np.diff(self.redsh_edges)/2.
-        self.mag_mid = self.mag_edges[:-1] + np.diff(self.mag_edges)/2.
+        elif not [x for x in (mag_range, redsh_range, mag_bins, redsh_bins) if
+                x is None]:
+            # Set up internal grid
+            self.mag_bins = mag_bins
+            self.redsh_bins = redsh_bins
+            self.redsh_range = redsh_range
+
+
+            self.redsh_edges = np.linspace(redsh_range[0],
+                                              redsh_range[1],
+                                              redsh_bins+1, dtype='float32')
+            self.mag_edges = np.linspace(mag_range[0],
+                                            mag_range[1],
+                                            mag_bins+1, dtype='float32')
+
+            self.redsh_mid = self.redsh_edges[:-1]+np.diff(self.redsh_edges)/2.
+            self.mag_mid = self.mag_edges[:-1] + np.diff(self.mag_edges)/2.
+
+        else:
+            raise ValueError('[ERROR] QsoSelectionFunctionGrid could not be '
+                             'initialized. Either no filename was given to '
+                             'load existing data or one of the main keywords '
+                             '(mag_range, redsh_range, mag_bins, redsh_bins) '
+                             'is None')
+
 
         # Simpson grid cache variable to calculate luminosity function fit
         # with Simpson rule.
         self.simps_grid = None
 
-        if selfungrid:
+        if selfungrid is not None:
             self.selfungrid = selfungrid
             self.get_selfun_from_grid()
 
@@ -468,11 +495,81 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
 
         self.get_selfun_from_grid()
 
-    def save(self):
-        pass
+    def save(self, filename, format='csv'):
+        """ Save a QsoSelectionFunctionGrid object to a file
 
-    def load(self):
-        pass
+        :param filename: Filename to save the QsoSelectionFunctionGrid to.
+        :type filename: string
+        :param format: File format of saved QsoSelectionFunctionGrid.
+        Currently implemented formats are: "csv"
+        :type format: string
+        :return:
+        """
+
+        selfunarr = self.selfungrid.T.flatten()
+
+        magarr, redsharr = np.meshgrid(self.mag_mid, self.redsh_mid)
+
+        df = pd.DataFrame({'magarr': magarr.flatten(),
+                           'redsharr': redsharr.flatten(),
+                           'selfunarr': selfunarr})
+
+        if format == 'csv':
+            df.to_csv(filename)
+        else:
+            raise NotImplementedError('[ERROR] Format {} is not '
+                                      'implemented.'.format(format))
+
+    def load(self, filename, format='csv'):
+        """ Load a QsoSelectionFunctionGrid from a file.
+
+        :param filename: Filename to load a saved QsoSelectionFunctionGrid from.
+        :type filename: string
+        :param format: File format of saved QsoSelectionFunctionGrid.
+        Currently implemented formats are: ".csv"
+        :type format: string
+        :return:
+        """
+
+        if format == 'csv':
+            df = pd.read_csv(filename)
+
+            self.redsh_bins = np.unique(df['redsharr']).shape[0]
+            self.mag_bins = np.unique(df['magarr']).shape[0]
+
+            self.redsh_mid = df['redsharr'].values.reshape(self.redsh_bins,
+                                                           self.mag_bins)
+            self.redsh_mid = self.redsh_mid[:, 0]
+
+            self.mag_mid = df['magarr'].values.reshape(self.redsh_bins,
+                                                       self.mag_bins)
+            self.mag_mid = self.mag_mid[0, :]
+
+            self.selfungrid = df['selfunarr'].values.reshape(self.redsh_bins,
+                                                             self.mag_bins).T
+
+            # Reconstructing the edges assuming equal sized bins
+
+            self.mag_edges = self.mag_mid[:-1]+np.diff(self.mag_mid)/2.
+            value = self.mag_mid[0]-np.diff(self.mag_mid[0:2])/2.
+            self.mag_edges = np.insert(self.mag_edges, 0, value)
+            value = self.mag_mid[-1] + np.diff(self.mag_mid[-3:-1])/2.
+            self.mag_edges = np.append(self.mag_edges, value)
+
+            self.redsh_edges = self.redsh_mid[:-1]+np.diff(self.redsh_mid)/2.
+            value = self.redsh_mid[0] - np.diff(self.redsh_mid[0:2]) / 2.
+            self.redsh_edges = np.insert(self.redsh_edges, 0, value)
+            value = self.redsh_mid[-1] + np.diff(self.redsh_mid[-3:-1]) / 2.
+            self.redsh_edges = np.append(self.redsh_edges, [value])
+
+            self.redsh_range = [self.redsh_edges[0], self.redsh_edges[-1]]
+            self.mag_range = [self.mag_edges[0], self.mag_edges[-1]]
+
+        else:
+            raise NotImplementedError('[ERROR] Format {} is not '
+                                      'implemented.'.format(format))
+
+        self.get_selfun_from_grid()
 
     def plot_grid(self, title=None):
         """Plot the selection function grid as a map of magnitude and redshift.
