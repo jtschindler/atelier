@@ -12,7 +12,7 @@ def interp_dVdzdO(redsh_range, cosmo):
     :math:`(dV/dz){d\Omega}` over the specified redshift range
     zrange = :math:`(z_1,z_2)`.
 
-    This interpolations speeds up volume (redshift, solid angle) integrations
+    This interpolation speeds up volume (redshift, solid angle) integrations
     for the luminosity function without significant loss in accuracy.
 
     The resolution of the redshift array, which will be interpolated is
@@ -699,8 +699,6 @@ class LuminosityFunction(object):
 
         return self.evaluate(lum, redsh) * 10**lum
 
-
-
     def integrate_to_luminosity_density(self, lum_range, redsh,
                                         **kwargs):
         """
@@ -724,9 +722,6 @@ class LuminosityFunction(object):
 
 
         return lum_den
-
-
-
 
     def integrate_over_lum_redsh_appmag_limit(self, lum_range, redsh_range,
                                               appmag_limit, kcorrection,
@@ -846,7 +841,6 @@ class LuminosityFunction(object):
 
         return integral
 
-
     def integrate_lum(self, redsh, lum_range, **kwargs):
         """Calculate the volumetric source density described by the luminosity
         function at a given redshift and over a luminosity interval in units of
@@ -880,7 +874,7 @@ class LuminosityFunction(object):
         """Sample the luminosity function over a given luminosity and
             redshift range.
 
-        This sampling routine is in large part adopten from
+        This sampling routine is in large part adopted from
         https://github.com/imcgreer/simqso/blob/master/simqso/lumfun.py
         , lines 219 and following.
 
