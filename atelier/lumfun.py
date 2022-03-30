@@ -2226,6 +2226,98 @@ class YangJinyi2016QLF(DoublePowerLawLF):
         return 10**log_phi_star_z6 * 10**(k * (redsh - z_ref))
 
 
+class Schindler2019_LEDE_QLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Schindler+2019 with LEDE evolution.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2019ApJ...871..258S/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+    The LEDE model was fit to a range of binned QLF measurements using
+    chi-squared minimzation.
+
+    This implementation adopts the LEDE double power law fit presented in
+    Table 8.
+    """
+
+
+    def __init__(self, cosmology=None):
+        """Initialize the Schindler+2019 type-I quasar UV luminosity function.
+        """
+
+        # ML fit parameters from Table 7
+        log_phi_star_z2p2 = Parameter(-6.11, 'log_phi_star_z2p2',
+                                  one_sigma_unc=[0.05,
+                                                 0.05]
+                                  )
+
+        lum_star_z2p2 = Parameter(-26.09, 'lum_star_z2p2',
+                                  one_sigma_unc=[0.05, 0.05])
+
+        alpha = Parameter(-1.55, 'alpha', one_sigma_unc=[0.02, 0.02])
+
+        beta = Parameter(-3.65, 'beta', one_sigma_unc=[0.06, 0.06])
+
+        c1 = Parameter(-0.61, 'c1', one_sigma_unc=[0.02, 0.02])
+
+        c2 = Parameter(-0.1, 'c2', one_sigma_unc=[0.03, 0.03])
+
+
+        parameters = {'log_phi_star_z2p2': log_phi_star_z2p2,
+                      'lum_star_z2p2': lum_star_z2p2,
+                      'alpha': alpha,
+                      'beta': beta,
+                      'c1': c1,
+                      'c2': c2}
+
+        param_functions = {'phi_star': phi_star,
+                           'lum_star': lum_star,}
+
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 2.9
+
+        super(Schindler2019_2p9_QLF, self).__init__(parameters, param_functions,
+                                                     lum_type=lum_type,
+                                                     ref_cosmology=ref_cosmology,
+                                                     ref_redsh=ref_redsh,
+                                                     cosmology=cosmology)
+
+    @staticmethod
+    def phi_star(redsh,log_phi_star_z2p2, c1):
+        """Calculate the redshift dependent luminosity function normalization.
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param log_phi_star_z2p2: Logarithmic source density at z=2.2
+        :type log_phi_star_z2p2: float
+        :param c1: Redshift evolution parameter
+        :type c1: float
+        :return:
+        """
+
+        return 10**(log_phi_star_z2p2 + c1 * (redsh-2.2))
+
+    @staticmethod
+    def lum_star(redsh, lum_star_z2p2, c2):
+        """Calculate the redshift dependent break magnitude.
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param lum_star_z2p2: Break magnitude at z=2.2
+        :type lum_star_z2p2: float
+        :param c2: Redshift evolution parameter
+        :type c2: float
+        :return:
+        """
+
+        return lum_star_z2p2 + c2 * (redsh-2.2)
+
+
 class Schindler2019_4p25_QLF(DoublePowerLawLF):
     """Implementation of the type-I quasar UV(M1450) luminosity function of
     Schindler+2019 at z~4.25.
