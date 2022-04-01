@@ -6,6 +6,11 @@ from scipy import integrate
 from scipy.interpolate import interp1d
 from astropy.cosmology import FlatLambdaCDM
 
+import matplotlib.pyplot as plt
+
+from atelier import plot_defaults
+from atelier import tol_colors
+
 # Basic functionality needed for this class
 def interp_dVdzdO(redsh_range, cosmo):
     """Interpolate the differential comoving solid volume element
@@ -2272,8 +2277,8 @@ class Schindler2019_LEDE_QLF(DoublePowerLawLF):
                       'c1': c1,
                       'c2': c2}
 
-        param_functions = {'phi_star': phi_star,
-                           'lum_star': lum_star,}
+        param_functions = {'phi_star': self.phi_star,
+                           'lum_star': self.lum_star}
 
 
         lum_type = 'M1450'
@@ -2281,7 +2286,7 @@ class Schindler2019_LEDE_QLF(DoublePowerLawLF):
         ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
         ref_redsh = 2.9
 
-        super(Schindler2019_2p9_QLF, self).__init__(parameters, param_functions,
+        super(Schindler2019_LEDE_QLF, self).__init__(parameters, param_functions,
                                                      lum_type=lum_type,
                                                      ref_cosmology=ref_cosmology,
                                                      ref_redsh=ref_redsh,
@@ -3465,3 +3470,77 @@ kim2021  = \
         'redshift': 5,
         'redshift_range': [4.7, 5.4]
         }
+
+
+
+def verification_plots_kulkarni2019QLF():
+
+    plot_defaults.set_paper_defaults()
+
+    qlf = Kulkarni2019QLF()
+
+    redshifts = np.linspace(0, 7, 200)
+    lum = -27
+
+    main_parameters = np.zeros((4, len(redshifts)))
+
+    for idx, redsh in enumerate(redshifts):
+
+        params = qlf.evaluate_main_parameters(lum, redsh)
+        main_parameters[0, idx] = params['phi_star']
+        main_parameters[1, idx] = params['lum_star']
+        main_parameters[2, idx] = params['alpha']
+        main_parameters[3, idx] = params['beta']
+
+    # Set up figure
+    fig = plt.figure(num=None, figsize=(6, 4), dpi=120)
+    fig.subplots_adjust(left=0.13, bottom=0.15, right=0.87, top=0.92,
+                        hspace=0.3, wspace=0.3)
+
+    ax1 = fig.add_subplot(2, 2, 1)
+    ax1.plot(redshifts, np.log10(main_parameters[0, :]))
+    ax1.set_xlabel(r'$\rm{Redshift}$', fontsize=12)
+    ax1.set_ylabel(r'$\log (\Phi^*/\rm{mag}^{-1}\rm{cMpc}^{-3})$', fontsize=12)
+
+    ax2 = fig.add_subplot(2, 2, 2)
+    ax2.plot(redshifts, main_parameters[1, :])
+    ax2.set_xlabel(r'$\rm{Redshift}$', fontsize=12)
+    ax2.set_ylabel(r'$M_{1450}^*$', fontsize=12)
+
+    ax3 = fig.add_subplot(2, 2, 3)
+    ax3.plot(redshifts, main_parameters[2, :])
+    ax3.set_xlabel(r'$\rm{Redshift}$', fontsize=12)
+    ax3.set_ylabel(r'$\alpha$', fontsize=12)
+
+    ax4 = fig.add_subplot(2, 2, 4)
+    ax4.plot(redshifts, main_parameters[3, :])
+    ax4.set_xlabel(r'$\rm{Redshift}$', fontsize=12)
+    ax4.set_ylabel(r'$\beta$', fontsize=12)
+
+    lum = np.linspace(-32, -19, 200)
+    redshifts = [4.4, 5.1, 6.0, 7.0]
+
+    # Set up figure
+    fig2 = plt.figure(num=None, figsize=(6, 4), dpi=120)
+    fig2.subplots_adjust(left=0.13, bottom=0.15, right=0.87, top=0.92)
+
+    ax = fig2.add_subplot(1, 1, 1)
+
+    ax.plot(lum, np.log10(qlf(lum, redshifts[0])), label='z=4.4')
+    ax.plot(lum, np.log10(qlf(lum, redshifts[1])), label='z=5.1')
+    ax.plot(lum, np.log10(qlf(lum, redshifts[2])), label='z=6.0')
+    ax.plot(lum, np.log10(qlf(lum, redshifts[3])), label='z=7.0')
+
+    ax.set_xlabel(r'$M_{1450}$', fontsize=14)
+    ax.set_ylabel(r'$\log (\Phi/\rm{mag}^{-1}\rm{cMpc}^{-3})$', fontsize=14)
+    ax.set_xlim(-19, -32)
+    ax.set_ylim(-12, -4)
+    ax.legend(fontsize=12)
+
+    plt.show()
+
+
+
+if __name__ == '__main__':
+
+    verification_plots_kulkarni2019QLF()
