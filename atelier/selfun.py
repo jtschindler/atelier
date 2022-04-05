@@ -88,7 +88,9 @@ class QsoSelectionFunction(object):
 
     def plot_selfun(self, mag_res=0.01, redsh_res=0.01,
                     mag_range=None, redsh_range=None, title=None,
-                    levels=[0.2, 0.5, 0.70], level_color='k', cmap=cm.viridis):
+                    levels=[0.2, 0.5, 0.70], level_color='k',
+                    cmap=cm.viridis,
+                    save_name=None):
         """Plot the selection function on a grid of redshift and magnitude.
 
         To calculate the map of the selection function the selection function is
@@ -115,6 +117,8 @@ class QsoSelectionFunction(object):
         :type level_color: string
         :param cmap: Color map for the selection function
         :type cmap: Matplotlib colormap
+        :param save_name: Populate with name to save the plot. Default='None'
+        :type save_name: string
         :return:
         """
         # Set up figure
@@ -174,7 +178,10 @@ class QsoSelectionFunction(object):
             fig.suptitle(r'$\textrm{'+title+'}$', fontsize=18)
             fig.subplots_adjust(top=0.93)
 
-        plt.show()
+        if save_name is None:
+            plt.show()
+        else:
+            plt.savefig('{}'.format(save_name))
 
 
 class CompositeQsoSelectionFunction(QsoSelectionFunction):
