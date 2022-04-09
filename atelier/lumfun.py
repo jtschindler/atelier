@@ -1137,7 +1137,7 @@ class DoublePowerLawLF(LuminosityFunction):
                                      lum_range[0],
                                      lum_range[1],
                                      args=(redsh,),
-                                     **int_kwargs)
+                                     **int_kwargs)[0]
 
         return integral
 
