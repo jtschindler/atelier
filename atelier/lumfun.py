@@ -106,6 +106,18 @@ def mag_single_power_law(mag, phi_star, mag_ref, alpha):
     return phi_star / A
 
 
+def richards_single_power_law(mag, phi_star, mag_ref, alpha):
+    """
+
+    :param mag:
+    :param phi_star:
+    :param mag_ref:
+    :param alpha:
+    :return:
+    """
+    return phi_star * 10**(alpha*(mag - mag_ref))
+
+
 # Class functions
 class Parameter(object):
     """ A class providing a data container for a parameter used in the
@@ -716,15 +728,16 @@ class LuminosityFunction(object):
 
         # Get keyword arguments for the integration
         int_kwargs = {}
-        int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
-        int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
-        int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        int_kwargs.setdefault('epqsabs', kwargs.pop('epsabs', 1e-3))
+        int_kwargs.setdefault('epsrel', kwargs.pop('epsrel', 1e-3))
 
         integrand = self._luminosity_density_integrand
 
-        lum_den = integrate.romberg(integrand, *lum_range, args=(redsh,),
-                                    **int_kwargs)
+        # lum_den = integrate.romberg(integrand, *lum_range, args=(redsh,),
+        #                             **int_kwargs)
 
+        lum_den = integrate.quad(integrand, *lum_range, args=(redsh,),
+                                    **int_kwargs)[0]
 
         return lum_den
 
@@ -835,14 +848,21 @@ class LuminosityFunction(object):
 
         # Get keyword arguments for the integration
         int_kwargs = {}
-        int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
-        int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
-        int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        # int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
+        # int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
+        # int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        int_kwargs.setdefault('epsabs', kwargs.pop('epsabs', 1.49e-08))
+        int_kwargs.setdefault('epsrel', kwargs.pop('epsrel', 1.49e-08))
 
-        integral = integrate.romberg(self._redshift_density_integrand,
+        # integral = integrate.romberg(self._redshift_density_integrand,
+        #                              lum_range[0],
+        #                              lum_range[1],
+        #                              args=(redsh, dVdzdO), **int_kwargs)
+
+        integral = integrate.quad(self._redshift_density_integrand,
                                      lum_range[0],
                                      lum_range[1],
-                                     args=(redsh, dVdzdO), **int_kwargs)
+                                     args=(redsh, dVdzdO), **int_kwargs)[0]
 
         return integral
 
@@ -862,14 +882,16 @@ class LuminosityFunction(object):
 
         # Get keyword arguments for the integration
         int_kwargs = {}
-        int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
-        int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
-        int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        # int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
+        # int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
+        # int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        int_kwargs.setdefault('epsabs', kwargs.pop('epsabs', 1.49e-08))
+        int_kwargs.setdefault('epsrel', kwargs.pop('epsrel', 1.49e-08))
 
-        integral = integrate.romberg(self.evaluate,
+        integral = integrate.quad(self.evaluate,
                                      lum_range[0],
                                      lum_range[1],
-                                     args=(redsh,), **int_kwargs)
+                                     args=(redsh,), **int_kwargs)[0]
 
         return integral
 
@@ -1098,12 +1120,20 @@ class DoublePowerLawLF(LuminosityFunction):
 
         # Get keyword arguments for the integration
         int_kwargs = {}
-        int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
-        int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
-        int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        # int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
+        # int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
+        # int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        int_kwargs.setdefault('epsabs', kwargs.pop('epsabs', 1.49e-08))
+        int_kwargs.setdefault('epsrel', kwargs.pop('epsrel', 1.49e-08))
 
         # Integrate luminosity function times L1450 over luminosity
-        integral = integrate.romberg(self._ionizing_emissivity_integrand,
+        # integral = integrate.romberg(self._ionizing_emissivity_integrand,
+        #                              lum_range[0],
+        #                              lum_range[1],
+        #                              args=(redsh,),
+        #                              **int_kwargs)
+
+        integral = integrate.quad(self._ionizing_emissivity_integrand,
                                      lum_range[0],
                                      lum_range[1],
                                      args=(redsh,),
@@ -1278,16 +1308,24 @@ class SinglePowerLawLF(LuminosityFunction):
 
         # Get keyword arguments for the integration
         int_kwargs = {}
-        int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
-        int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
-        int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        # int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
+        # int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
+        # int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        int_kwargs.setdefault('epsabs', kwargs.pop('epsabs', 1.49e-08))
+        int_kwargs.setdefault('epsrel', kwargs.pop('epsrel', 1.49e-08))
 
         # Integrate luminosity function times L1450 over luminosity
-        integral = integrate.romberg(self._ionizing_emissivity_integrand,
+        # integral = integrate.romberg(self._ionizing_emissivity_integrand,
+        #                              lum_range[0],
+        #                              lum_range[1],
+        #                              args=(redsh,),
+        #                              **int_kwargs)
+
+        integral = integrate.quad(self._ionizing_emissivity_integrand,
                                      lum_range[0],
                                      lum_range[1],
                                      args=(redsh,),
-                                     **int_kwargs)
+                                     **int_kwargs)[0]
 
         return integral
 
@@ -2783,6 +2821,170 @@ class Giallongo2019_5p6_QLF(DoublePowerLawLF):
                                                      cosmology=cosmology)
 
 
+class Richards2006QLF(SinglePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+       Richards+2006 (z=1-5).
+
+       ADS reference:
+
+       The luminosity function is parameterized as a double power law with the
+       luminosity variable in absolute magnitudes Mi(z=2. We convert the Mi(
+       z=2) magnitudes to M1450 using a simple conversion factor (see
+       Ross+2013).
+
+       M1450(z=0) = Mi(z=2) + 1.486
+
+       This implementation adopts the double power law fit presented in Table 7
+       (variable power law).
+       """
+
+
+    def __init__(self, cosmology=None):
+        """Initialize the Richards2006 type-I quasar UV luminosity function.
+        """
+        z_pivot = Parameter(2.4, 'z_pivot')
+        a1_upp = Parameter(0.83, 'a1_upp', one_sigma_unc=0.01)
+        a2_upp = Parameter(-0.11, 'a2_upp', one_sigma_unc=0.01)
+        b1_upp = Parameter(1.43, 'b1_upp', one_sigma_unc=0.04)
+        b2_upp = Parameter(36.63, 'b2_upp', one_sigma_unc=0.1)
+        b3_upp = Parameter(34.39, 'b3_upp', one_sigma_unc=0.26)
+
+        a1_low = Parameter(0.84, 'a1_low')
+        a2_low = Parameter(0, 'a2_low')
+        b1_low = Parameter(1.43, 'b1_low', one_sigma_unc=0.04)
+        b2_low = Parameter(36.63, 'b2_low', one_sigma_unc=0.1)
+        b3_low = Parameter(34.39, 'b3_low', one_sigma_unc=0.26)
+
+        z_ref = Parameter(2.45, 'z_ref')
+        log_phi_star = Parameter(-5.7, 'log_phi_star')
+        lum_ref_star = Parameter(-26 + 1.486, 'lum_ref_star')
+
+        parameters = {'z_pivot': z_pivot,
+                      'a1_low': a1_low,
+                      'a2_low': a2_low,
+                      'a1_upp': a1_upp,
+                      'a2_upp': a2_upp,
+                      'b1_low': b1_low,
+                      'b2_low': b2_low,
+                      'b3_low': b3_low,
+                      'b1_upp': b1_upp,
+                      'b2_upp': b2_upp,
+                      'b3_upp': b3_upp,
+                      'z_ref': z_ref,
+                      'log_phi_star': log_phi_star,
+                      'lum_ref_star': lum_ref_star}
+
+        param_functions = {'phi_star': self.phi_star,
+                           'lum_ref': self.lum_ref,
+                           'alpha': self.alpha}
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 2.4
+
+        super(Richards2006QLF, self).__init__(parameters, param_functions,
+                                              lum_type=lum_type,
+                                              ref_cosmology=ref_cosmology,
+                                              ref_redsh=ref_redsh,
+                                              cosmology=cosmology)
+
+    @staticmethod
+    def lum_ref(redsh, lum_ref_star, b1_low, b2_low, b3_low, b1_upp, b2_upp,
+                 b3_upp, z_ref, z_pivot):
+
+
+        psi = np.log10( (1+redsh) / (1+z_ref))
+
+        if redsh <= z_pivot:
+            return lum_ref_star + (b1_low * psi + b2_low * psi**2 + b3_low *
+                               psi**3 )
+        else:
+            return lum_ref_star + (b1_upp * psi + b2_upp * psi**2 + b3_upp *
+                               psi**3 )
+
+
+    @staticmethod
+    def alpha(redsh, a1_low, a2_low, a1_upp, a2_upp, z_ref, z_pivot):
+
+        if redsh <= z_pivot:
+            return a1_low + a2_low * (redsh - z_ref)
+        else:
+            return a1_upp + a2_upp * (redsh - z_ref)
+
+
+    @staticmethod
+    def phi_star(redsh, log_phi_star):
+        """
+
+        :param redsh:
+        :param log_phi_star:
+        :return:
+        """
+
+        return 10**log_phi_star
+
+
+    def evaluate(self, lum, redsh, parameters=None):
+        """Evaluate the single power law as a function of magnitude ("lum")
+        and redshift ("redsh") for the Richards 2006 QLF.
+
+        Function to be evaluated: atelier.lumfun.richards_single_power_law()
+
+        :param lum: Luminosity for evaluation
+        :type lum: float or numpy.ndarray
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param parameters: Dictionary of parameters used for this specific
+            calculation. This does not replace the parameters with which the
+            luminosity function was initialized. (default=None)
+        :type parameters: dict(atelier.lumfun.Parameters)
+        :return: Luminosity function value
+        :rtype: (numpy.ndarray,numpy.ndarray)
+        """
+
+        if self.lum_type != 'M1450':
+            raise ValueError('[ERROR] Luminosity function is not defined as a'
+                             ' function of M1450. Therefore, this calculating'
+                             ' the ionizing emissivity with this function is'
+                             ' not valid')
+
+        if parameters is None:
+            parameters = self.parameters.copy()
+
+        main_parameter_values = self.evaluate_main_parameters(lum, redsh,
+                                                        parameters=parameters)
+
+        phi_star = main_parameter_values['phi_star']
+        lum_ref = main_parameter_values['lum_ref']
+        alpha = main_parameter_values['alpha']
+
+        # TODO: Try to precalculate factors in init for better performance
+        if self.cosmology is not None and self.ref_cosmology is not \
+                None:
+
+
+            distmod_ref = self.ref_cosmology.distmod(self.ref_redsh)
+            distmod_cos = self.cosmology.distmod(self.ref_redsh)
+
+            # Convert luminosity according to new cosmology
+            if self.lum_type in ['M1450']:
+                self.cosm_lum_conv = distmod_ref.value - distmod_cos.value
+            else:
+                raise NotImplementedError(
+                    '[ERROR] Conversions for luminosity '
+                    'type {} are not implemented.'.format(
+                        self.lum_type))
+
+            self.cosm_density_conv = self.ref_cosmology.h ** 3 / \
+                                     self.cosmology.h ** 3
+
+            lum_ref = lum_ref + self.cosm_lum_conv
+            phi_star = phi_star * self.cosm_density_conv
+
+        return richards_single_power_law(lum, phi_star, lum_ref, alpha)
+
+
 class Kulkarni2019QLF(DoublePowerLawLF):
     """Implementation of the type-I quasar UV(M1450) luminosity function of
     Kulkarni+2019 at z~1-6.
@@ -3540,7 +3742,79 @@ def verification_plots_kulkarni2019QLF():
     plt.show()
 
 
+def verification_plots_richards2006QLF():
+
+    plot_defaults.set_paper_defaults()
+
+    qlf = Richards2006QLF()
+
+    # # Set up figure
+    # fig = plt.figure(num=None, figsize=(6, 4), dpi=120)
+    # fig.subplots_adjust(left=0.13, bottom=0.15, right=0.87, top=0.92,
+    #                     hspace=0.3, wspace=0.3)
+    #
+    # lum = np.arange(-30, -24, 0.1)
+    #
+    # redsh = 2.01
+    # ax1 = fig.add_subplot(2, 2, 1)
+    # ax1.plot(lum, np.log10(qlf(lum, redsh)))
+    # ax1.set_xlabel(r'$\rm{Redshift}$', fontsize=12)
+    # ax1.set_ylabel(r'$\log (\Phi^*/\rm{mag}^{-1}\rm{cMpc}^{-3})$', fontsize=12)
+    #
+    #
+    # redsh = 0.49
+    # ax1.plot(lum, np.log10(qlf(lum, redsh)))
+    #
+    # redsh = 5.0
+    # ax1.plot(lum, np.log10(qlf(lum, redsh)))
+    #
+    # redsh = 2.4
+    # ax2 = fig.add_subplot(2, 2, 2)
+    # ax2.plot(lum, np.log10(qlf(lum, redsh)))
+    # ax2.set_xlabel(r'$\rm{Redshift}$', fontsize=12)
+    # ax2.set_ylabel(r'$\log (\Phi^*/\rm{mag}^{-1}\rm{cMpc}^{-3})$', fontsize=12)
+    #
+    # redsh = 2.8
+    # ax3 = fig.add_subplot(2, 2, 3)
+    # ax3.plot(lum, np.log10(qlf(lum, redsh)))
+    # ax3.set_xlabel(r'$\rm{Redshift}$', fontsize=12)
+    # ax3.set_ylabel(r'$\log (\Phi^*/\rm{mag}^{-1}\rm{cMpc}^{-3})$', fontsize=12)
+    #
+    # redsh = 3.25
+    # ax4 = fig.add_subplot(2, 2, 4)
+    # ax4.plot(lum, np.log10(qlf(lum, redsh)))
+    # ax4.set_xlabel(r'$\rm{Redshift}$', fontsize=12)
+    # ax4.set_ylabel(r'$\log (\Phi^*/\rm{mag}^{-1}\rm{cMpc}^{-3})$', fontsize=12)
+    #
+    # plt.show()
+    #
+
+
+
+    # Set up figure
+    fig = plt.figure(num=None, figsize=(6, 4), dpi=120)
+    fig.subplots_adjust(left=0.13, bottom=0.15, right=0.87, top=0.92,
+                        hspace=0.3, wspace=0.3)
+
+    redshifts = np.arange(0.5, 5, 0.01)
+    qso_density = np.zeros_like(redshifts)
+    mlow = -31
+    mupp = -26
+
+    for idx, redsh in enumerate(redshifts):
+
+        qso_density[idx] = qlf.integrate_lum(redsh, [mlow, mupp]) / 1e-9
+
+    ax = fig.add_subplot(1, 1, 1)
+    ax.plot(redshifts, qso_density)
+    ax.semilogy()
+    ax.set_ylabel(r'$n\,(M_{1450}<-26,z)\ (\rm{cGpc}^{-3})$',
+                  fontsize=15)
+    ax.set_xlabel(r'$\rm{Redshift}$', fontsize=15)
+    plt.show()
 
 if __name__ == '__main__':
 
-    verification_plots_kulkarni2019QLF()
+    # verification_plots_kulkarni2019QLF()
+
+    verification_plots_richards2006QLF()

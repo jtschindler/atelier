@@ -89,7 +89,9 @@ class QsoSelectionFunction(object):
     def plot_selfun(self, mag_res=0.01, redsh_res=0.01,
                     mag_range=None, redsh_range=None, title=None,
                     levels=[0.2, 0.5, 0.70], level_color='k',
-                    cmap=cm.viridis,
+                    cmap=cm.viridis, vmin=0, vmax=1,
+                    sample_mag=None, sample_z=None, sample_color='red',
+                    sample_mec='k', sample_marker='D',
                     save_name=None):
         """Plot the selection function on a grid of redshift and magnitude.
 
@@ -147,7 +149,7 @@ class QsoSelectionFunction(object):
         selfun_arr = self.evaluate(magmesh.ravel(), redshmesh.ravel())
         selfun_arr = np.reshape(selfun_arr, (redsh.shape[0], mag.shape[0])).T
 
-        cax = ax.imshow(selfun_arr, vmin=0, vmax=1,
+        cax = ax.imshow(selfun_arr, vmin=vmin, vmax=vmax,
                         extent=[redsh_range[0],
                                 redsh_range[1],
                                 mag_range[0],
@@ -158,6 +160,10 @@ class QsoSelectionFunction(object):
 
         CS = ax.contour(redsh, mag, selfun_arr, levels,
                         colors=level_color)
+
+        if sample_mag is not None and sample_z is not None:
+            ax.plot(sample_z, sample_mag, color=sample_color, ls='None',
+                    marker=sample_marker, ms=4, mec=sample_mec)
 
         if title is not None:
             cbar_ax = fig.add_axes([0.83, 0.095, 0.04, 0.83])
@@ -436,8 +442,8 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
             f = ClippedFunction(f, 0, 1)
         self.selfun = f
 
-    def calc_selfungrid_from_df(self, df, query, mag_col_name,
-                                redshift_col_name,
+    def calc_selfungrid_from_df(self, df, mag_col_name,
+                                redshift_col_name, query=None, sel_idx=None,
                           n_per_bin=None, verbose=1):
         """Calculate the selection function grid from a pandas DataFrame
 
@@ -491,8 +497,14 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
 
         # Set up the "selected" column
         df['selected'] = False
-        sel_idx = df.query(query).index
-        df.loc[sel_idx, 'selected'] = True
+        if query is not None:
+            sel_idx = df.query(query).index
+            df.loc[sel_idx, 'selected'] = True
+        elif sel_idx is not None:
+            df.loc[sel_idx, 'selected'] = True
+        else:
+            raise ValueError('[ERROR] Either "query" or "sel_idx" keyword '
+                             'need to be supplied.')
 
         # Reshape into the grid
         selected = df['selected'].values.reshape(int(self.mag_bins),

@@ -350,6 +350,11 @@ class LuminosityFunctionFit(object):
             initial_guess = [parameters[par_name].value for par_name in parameters]
             print('[INFO] Initial guess is set to {}'.format(initial_guess))
 
+        for survey in self.surveys:
+            if survey.lum_range is None or survey.redsh_range is None:
+                raise ValueError('[ERROR] Survey limits (lum, redsh) are not '
+                                 'defined.')
+
         pos = initial_guess + 1e-1 * np.random.randn(nwalkers, len(initial_guess))
 
         ndim = len(initial_guess)
@@ -369,7 +374,8 @@ class LuminosityFunctionFit(object):
 
 
     def run_mcmc_multiprocess(self, lumfun, initial_guess=None,
-                              nwalkers=None, steps=None, processes=None):
+                              nwalkers=None, steps=None, processes=None,
+                              int_mode='romberg'):
         """Run the emcee MCMC EnsembleSampler to fit the luminosity function
         model to the survey data using maximum likelihood estimation in
         multiprocessing mode.
@@ -402,6 +408,11 @@ class LuminosityFunctionFit(object):
             initial_guess = [parameters[par_name].value for par_name in parameters]
             print('[INFO] Initial guess is set to {}'.format(initial_guess))
 
+        for survey in self.surveys:
+            if survey.lum_range is None or survey.redsh_range is None:
+                raise ValueError('[ERROR] Survey limits (lum, redsh) are not '
+                                 'defined.')
+
         pos = initial_guess + 1e-1 * np.random.randn(nwalkers, len(initial_guess))
 
         ndim = len(initial_guess)
@@ -411,7 +422,8 @@ class LuminosityFunctionFit(object):
                   'redsh_range': self.redsh_range,
                   'surveys': self.surveys,
                   'dVdzdO': self.dVdzdO,
-                  'log_prior': log_prior}
+                  'log_prior': log_prior,
+                  'int_mode': int_mode}
 
 
         with Pool(processes=processes) as pool:

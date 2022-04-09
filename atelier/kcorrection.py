@@ -161,7 +161,7 @@ class KCorrectionPL(KCorrection):
         magnitude and redshift.
 
         The power law K-correction does not depend on magnitude. Hence
-        the argument 'amg' and the keyword argument 'inverse' play no role.
+        the argument 'mag' and the keyword argument 'inverse' play no role.
 
         :param mag: Magnitude
         :type mag: float
