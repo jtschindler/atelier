@@ -115,9 +115,12 @@ class Survey(object):
 
         # Get keyword arguments for the integration
         int_kwargs = {}
-        int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
-        int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
-        int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        # int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
+        # int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
+        # int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        # int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
+        int_kwargs.setdefault('epsabs', kwargs.pop('epsabs', 1e-3))
+        int_kwargs.setdefault('epsrel', kwargs.pop('epsrel', 1e-3))
 
         # Sort the bin edges
         lum_edges = np.sort(lum_edges)
@@ -216,23 +219,23 @@ class Survey(object):
                                     self.selection_function.evaluate(lum, redsh)
 
 
-                    inner_integral = lambda redsh: integrate.romberg(
+                    inner_integral = lambda redsh: integrate.quad(
                         integrand, bins[0].left, bins[0].right, args=(redsh,),
-                        **int_kwargs)
+                        **int_kwargs)[0]
 
-                    inner_integral_corr = lambda redsh: integrate.romberg(
+                    inner_integral_corr = lambda redsh: integrate.quad(
                         integrand_corr, bins[0].left, bins[0].right,
-                        args=(redsh,), **int_kwargs)
+                        args=(redsh,), **int_kwargs)[0]
 
-                    bin_volume_corr = integrate.romberg(inner_integral_corr,
+                    bin_volume_corr = integrate.quad(inner_integral_corr,
                                                         bins[1].left,
                                                         bins[1].right,
-                                                        **int_kwargs)
+                                                        **int_kwargs)[0]
 
-                    bin_volume = integrate.romberg(inner_integral,
+                    bin_volume = integrate.quad(inner_integral,
                                                    bins[1].left,
                                                    bins[1].right,
-                                                   **int_kwargs)
+                                                   **int_kwargs)[0]
 
                 bin_volume_corr *= self.sky_area_srd
                 bin_volume *= self.sky_area_srd

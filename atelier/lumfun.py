@@ -1833,6 +1833,77 @@ class McGreer2018QLF(DoublePowerLawLF):
         return pow(10, log_phi_star)
 
 
+class Willott2010QLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    McGreer+2018 at z~5 (z=4.9).
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2018AJ....155..131M/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+    This implementation adopts the best maximum likelihood estimate fit from
+    the second column in Table 2.
+
+
+    """
+
+    def __init__(self, cosmology=None):
+        """ Initialize the McGreer+2018 type-I quasar UV luminosity function.
+        """
+
+        # best MLE fit values Table 2 second column
+        phi_star_z6 = Parameter(1.14e-8, 'phi_star_z6')
+        lum_star = Parameter(-25.13, 'lum_star',)
+        alpha = Parameter(-1.5, 'alpha')
+        beta = Parameter(-2.81, 'beta', one_sigma_unc=None)
+
+        k = Parameter(-0.47, 'k')
+
+        z_ref = Parameter(6, 'z_ref')
+
+        parameters = {'phi_star_z6': phi_star_z6,
+                      'lum_star': lum_star,
+                      'alpha': alpha,
+                      'beta': beta,
+                      'k': k,
+                      'z_ref': z_ref}
+
+        param_functions = {'phi_star': self.phi_star}
+
+        lum_type = 'M1450'
+
+        # Komatsu+2009
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.28)
+        ref_redsh = 6.0
+
+        super(Willott2010QLF, self).__init__(parameters, param_functions,
+                                             lum_type=lum_type,
+                                             cosmology=cosmology,
+                                             ref_cosmology=ref_cosmology,
+                                             ref_redsh=ref_redsh)
+
+
+    @staticmethod
+    def phi_star(redsh, phi_star_z6, k, z_ref):
+        """Calculate the redshift dependent luminosity function normalization.
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param log_phi_star_z6: Logarithmic source density at z=6
+        :type log_phi_star_z6: float
+        :param k: Power law exponent of density evolution
+        :type k: float
+        :param z_ref: Reference redshift
+        :type z_ref: float
+        :return:
+        """
+
+        log_phi_star = phi_star_z6 * 10**(k * (redsh-z_ref))
+
+        return pow(10, log_phi_star)
+
+
 class WangFeige2019SPLQLF(SinglePowerLawLF):
     """Implementation of the type-I quasar UV(M1450) luminosity function of
     Wang+2019 at z~6.7.
@@ -2716,6 +2787,125 @@ class Boutsia2021_QLF(DoublePowerLawLF):
                                                      ref_cosmology=ref_cosmology,
                                                      ref_redsh=ref_redsh,
                                                      cosmology=cosmology)
+
+
+class Kim2020_QLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Kim+2020 at z~5.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2020ApJ...904..111K/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+    The fit in Kim+2020 includes data from Yang+2016 at brighter luminosities.
+
+    This implementation adopts the double power law fit presented in Table 6,
+    Case 1.
+    """
+
+
+    def __init__(self, cosmology=None):
+        """Initialize the Boutsia+2021 type-I quasar UV luminosity function.
+        """
+
+        # ML fit parameters from Table 7
+        log_phi_star = Parameter(-7.36, 'log_phi_star',
+                             one_sigma_unc=[0.81, 0.56])
+
+        lum_star = Parameter(-25.78, 'lum_star', one_sigma_unc=[1.1, 1.35])
+
+        alpha = Parameter(-1.21, 'alpha', one_sigma_unc=[0.64, 1.36])
+
+        beta = Parameter(-3.44, 'beta', one_sigma_unc=[0.84, 0.66])
+
+
+        parameters = {'log_phi_star': log_phi_star,
+                      'lum_star': lum_star,
+                      'alpha': alpha,
+                      'beta': beta}
+
+        param_functions = {'phi_star', self.phi_star}
+
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 5.0
+
+        super(Kim2020_QLF, self).__init__(parameters,
+                                                      param_functions,
+                                                     lum_type=lum_type,
+                                                     ref_cosmology=ref_cosmology,
+                                                     ref_redsh=ref_redsh,
+                                                     cosmology=cosmology)
+
+
+    @staticmethod
+    def phi_star(redsh, log_phi_star):
+        """
+
+        :param redsh:
+        :param log_phi_star:
+        :return:
+        """
+
+        return 10**log_phi_star
+
+
+
+class Niida2020_QLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Niida+2020 at z~5.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2020ApJ...904...89N/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+    The fit in Kim+2020 includes data from SDSS at brighter luminosities.
+
+    This implementation adopts the double power law fit presented in Table 6,
+    Case 1.
+    """
+
+
+    def __init__(self, cosmology=None):
+        """Initialize the Boutsia+2021 type-I quasar UV luminosity function.
+        """
+
+        # ML fit parameters from Table 7
+        phi_star = Parameter(1.01e-7, 'log_phi_star',
+                             one_sigma_unc=[0.29e-7, 0.21e-7])
+
+        lum_star = Parameter(-25.05, 'lum_star', one_sigma_unc=[0.24, 0.1])
+
+        alpha = Parameter(-1.22, 'alpha', one_sigma_unc=[0.1, 0.03])
+
+        beta = Parameter(-2.9, 'beta')
+
+
+        parameters = {'phi_star': phi_star,
+                      'lum_star': lum_star,
+                      'alpha': alpha,
+                      'beta': beta}
+
+        param_functions = {}
+
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 5.0
+
+        super(Niida2020_QLF, self).__init__(parameters,
+                                                      param_functions,
+                                                     lum_type=lum_type,
+                                                     ref_cosmology=ref_cosmology,
+                                                     ref_redsh=ref_redsh,
+                                                     cosmology=cosmology)
+
+
 
 
 
