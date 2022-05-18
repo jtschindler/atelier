@@ -2238,7 +2238,7 @@ class Schindler2022QLF(DoublePowerLawLF):
         ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
         ref_redsh = 6.0
 
-        super(Matsuoka2018QLF, self).__init__(parameters, param_functions,
+        super(Schindler2022QLF, self).__init__(parameters, param_functions,
                                                  lum_type=lum_type,
                                                  ref_cosmology=ref_cosmology,
                                                  ref_redsh=ref_redsh,
