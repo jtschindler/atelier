@@ -4,10 +4,32 @@ import scipy
 import numpy as np
 import pandas as pd
 
-from astropy import stats
+from astropy import stats as ap_stats
 from scipy import integrate
+from scipy import stats
 
 from atelier import lumfun
+
+
+def return_poisson_confidence(n, bound_low=0.15865, bound_upp=0.84135):
+    """
+    Return the Poisson confidence interval boundaries for the lower and
+    upper bound given a number of events n.
+
+    The default values for ther lower and upper bounds are equivalent to the
+    1 sigma confidence interval of a normal distribution.
+
+    :param n:
+    :param n_sigma:
+    :return:
+    """
+
+
+    lower = stats.chi2.ppf(bound_low, 2*n)/2
+    upper = stats.chi2.ppf(bound_upp, 2*(n+1))/2
+
+    return np.array([lower, upper])
+
 
 
 class Survey(object):
@@ -37,7 +59,7 @@ class Survey(object):
     def __init__(self, obj_df, lum_colname, redsh_colname, sky_area,
                  selection_function=None,
                  lum_range=None, redsh_range=None,
-                 poisson_conf_interval='root-n'):
+                 conf_interval='poisson'):
         """Initialize the Survey class.
 
         :param obj_df: Data frame with information on astronomical sources in the survey.
@@ -79,7 +101,7 @@ class Survey(object):
         self.lum_range = lum_range
         self.redsh_range = redsh_range
 
-        self.poisson_conf_interval = poisson_conf_interval
+        self.conf_interval = conf_interval
 
         if selection_function is not None:
             self.selection_function = selection_function
@@ -94,9 +116,9 @@ class Survey(object):
         self.obj_df['weights'] = self.obj_weights
         self.obj_df['selprob'] = self.obj_selprob
 
-
     def calc_binned_lumfun_PC2000(self, lum_edges, redsh_edges, cosmology,
-                           kcorrection=None, app_mag_lim=None, **kwargs):
+                                  kcorrection=None, app_mag_lim=None,
+                                  **kwargs,):
         """ Calculation of the binned luminosity function based on the method
         outlined in Page & Carrera 2000
 
@@ -164,8 +186,19 @@ class Survey(object):
             # raw counts
             count = group.shape[0]
             # count uncertainty
-            count_unc = stats.poisson_conf_interval(
-                count, interval=self.poisson_conf_interval)
+            if self.conf_interval == 'rootn':
+
+                count_unc = ap_stats.poisson_conf_interval(
+                count, interval='root-n')
+
+            elif self.conf_interval == 'poisson':
+
+                count_unc = return_poisson_confidence(count)
+
+            else:
+                raise ValueError('[ERROR] Confidence interval value not '
+                                 'understood. The options are '
+                                 '"rootn" or "poisson".')
 
             # Calculate if bin is fully within survey magnitude limit
             if app_mag_lim is not None:

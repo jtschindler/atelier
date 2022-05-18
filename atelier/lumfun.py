@@ -2193,6 +2193,78 @@ class Matsuoka2018QLF(DoublePowerLawLF):
 
 
 
+class Schindler2022QLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Schindler+2022 at z~6.
+
+    ADS reference: TBD
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+    This implementation adopts the double power law fit presented in Table XXX
+    (first row).
+    """
+
+    def __init__(self, cosmology=None):
+        """Initialize the Matsuoka+2018 type-I quasar UV luminosity function.
+        """
+
+
+        # ML fit parameters from the "standard" model in Table 5
+        log_phi_star_z6 = Parameter(-8.62, 'log_phi_star_z6')
+
+        lum_star = Parameter(-26.37, 'lum_star', one_sigma_unc=[0.9, 0.75])
+
+        alpha = Parameter(-1.60, 'alpha', one_sigma_unc=[0.34, 0.44])
+
+        beta = Parameter(-4.13, 'beta', one_sigma_unc=[0.31, 0.23])
+
+        k = Parameter(-0.7, 'k')
+
+        z_ref = Parameter(6, 'z_ref')
+
+        parameters = {'log_phi_star_z6': log_phi_star_z6,
+                      'lum_star': lum_star,
+                      'alpha': alpha,
+                      'beta': beta,
+                      'k': k,
+                      'z_ref': z_ref}
+
+        param_functions = {'phi_star': self.phi_star}
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 6.0
+
+        super(Matsuoka2018QLF, self).__init__(parameters, param_functions,
+                                                 lum_type=lum_type,
+                                                 ref_cosmology=ref_cosmology,
+                                                 ref_redsh=ref_redsh,
+                                                 cosmology=cosmology)
+
+    @staticmethod
+    def phi_star(redsh, log_phi_star_z6, k, z_ref):
+        """Calculate the redshift dependent luminosity function normalization.
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param phi_star_z6: Logarithmic source density at z=6
+        :type phi_star_z6: float
+        :param k: Power law exponent of density evolution
+        :type k: float
+        :param z_ref: Reference redshift
+        :type z_ref: float
+        :return:
+        """
+
+        phi_star_z6 = 10**(log_phi_star_z6)
+
+        return phi_star_z6 * 10**(k * (redsh - z_ref))
+
+
+
 class Willott2010QLF(DoublePowerLawLF):
     """Implementation of the type-I quasar UV(M1450) luminosity function of
     Willott+2010 at z~6.
@@ -2804,7 +2876,6 @@ class Kim2020_QLF(DoublePowerLawLF):
     Case 1.
     """
 
-
     def __init__(self, cosmology=None):
         """Initialize the Boutsia+2021 type-I quasar UV luminosity function.
         """
@@ -2825,7 +2896,7 @@ class Kim2020_QLF(DoublePowerLawLF):
                       'alpha': alpha,
                       'beta': beta}
 
-        param_functions = {'phi_star', self.phi_star}
+        param_functions = {'phi_star': self.phi_star}
 
 
         lum_type = 'M1450'
@@ -2834,11 +2905,11 @@ class Kim2020_QLF(DoublePowerLawLF):
         ref_redsh = 5.0
 
         super(Kim2020_QLF, self).__init__(parameters,
-                                                      param_functions,
-                                                     lum_type=lum_type,
-                                                     ref_cosmology=ref_cosmology,
-                                                     ref_redsh=ref_redsh,
-                                                     cosmology=cosmology)
+                                          param_functions,
+                                          lum_type=lum_type,
+                                          ref_cosmology=ref_cosmology,
+                                          ref_redsh=ref_redsh,
+                                          cosmology=cosmology)
 
 
     @staticmethod
