@@ -5,7 +5,7 @@ import matplotlib
 
 from cycler import cycler
 
-matplotlib.font_manager._rebuild()
+# matplotlib.font_manager._rebuild()
 
 
 
@@ -32,7 +32,8 @@ def set_paper_defaults():
 
 
 def set_presentation_defaults():
-    # Defining the particular plotting style
+    # Defining the presentation plotting style
+
     matplotlib.rc('font', weight=500)
     matplotlib.rc('font', **{'family': 'sans-serif', 'sans-serif': ['Roboto']})
     matplotlib.rcParams['mathtext.fontset'] = 'custom'

@@ -374,7 +374,8 @@ class KCorrectionGrid(KCorrection):
 
         # Calculate the distance modulus for all data frame entries
         distmod = self.cosmology.distmod(
-            df[redshift_col_name].values)
+            df[redshift_col_name].values).value
+
         # Calculate the k-correction term
         kcorrection = (df[appmag_col_name] - distmod) - \
                                   df[mag_col_name]

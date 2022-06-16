@@ -19,8 +19,11 @@ dependencies:
 - h5py
 - sphinx>=1.4
 - ipykernel
+- pyarrow
+- healpy
 - pip:
   - lmfit>=1.0.1
   - corner>=2.1.0
   - nbsphinx
   - nbsphinx-link
+  - chainconsumer
