@@ -61,7 +61,7 @@ def mag_double_power_law(mag, phi_star, mag_star, alpha, beta):
 
 
 def mag_smooth_double_power_law(mag, phi_star, mag_star, alpha,
-                                           beta, delta):
+                                           beta, log_delta):
     """Evaluate a smooth broken double power law luminosity function as a
     function of magnitude.
 
@@ -82,12 +82,14 @@ def mag_smooth_double_power_law(mag, phi_star, mag_star, alpha,
        :rtype: float or np.ndarray
        """
 
-    A = pow(10, 0.4 * (alpha + 1) * (mag - mag_star))
+    delta = 10**log_delta
 
-    B = pow(10, 0.4 * (mag - mag_star))**(1./delta)
+    A = pow(10, 0.4 * (alpha + 1) * (mag - mag_star) * delta)
+    B = pow(10, 0.4 * (beta + 1) * (mag - mag_star) * delta)
 
-    return phi_star * (0.5 * (1 + B))**((alpha-beta)*delta)
+    C = A + B
 
+    return phi_star * C**(-1/delta)
 
 
 def lum_double_power_law(lum, phi_star, lum_star, alpha, beta):
@@ -1237,6 +1239,7 @@ class SmoothDoublePowerLawLF(LuminosityFunction):
       change.
     - "alpha": the first power law slope
     - "beta": the second power law slope
+    - "delta": the smoothing parameter
 
     """
 
@@ -1249,7 +1252,7 @@ class SmoothDoublePowerLawLF(LuminosityFunction):
         # functional form of the luminosity function, they can themselves be
         # functions parameters (incl. redshift and luminosity dependence).
         self.main_parameters = ['phi_star', 'lum_star', 'alpha', 'beta',
-                                'delta']
+                                'log_delta']
 
         # Initialize the parent class
         super(SmoothDoublePowerLawLF, self).__init__(parameters, param_functions,
@@ -1288,7 +1291,7 @@ class SmoothDoublePowerLawLF(LuminosityFunction):
         lum_star = main_parameter_values['lum_star']
         alpha = main_parameter_values['alpha']
         beta = main_parameter_values['beta']
-        delta = main_parameter_values['delta']
+        log_delta = main_parameter_values['log_delta']
 
         # TODO: Try to precalculate factors in init for better performance
         if self.cosmology is not None and self.ref_cosmology is not \
@@ -1314,7 +1317,7 @@ class SmoothDoublePowerLawLF(LuminosityFunction):
             phi_star = phi_star * self.cosm_density_conv
 
         return mag_smooth_double_power_law(lum, phi_star, lum_star, alpha,
-                                           beta, delta)
+                                           beta, log_delta)
 
     # def calc_ionizing_emissivity_at_1450A(self, redsh, lum_range, **kwargs):
     #     """Calculate the ionizing emissivity at rest-frame 1450A,
