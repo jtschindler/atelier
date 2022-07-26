@@ -60,6 +60,36 @@ def mag_double_power_law(mag, phi_star, mag_star, alpha, beta):
     return phi_star / (A + B)
 
 
+def mag_smooth_double_power_law(mag, phi_star, mag_star, alpha,
+                                           beta, delta):
+    """Evaluate a smooth broken double power law luminosity function as a
+    function of magnitude.
+
+       :param mag: Magnitude
+       :type mag: float or np.ndarray
+       :param phi_star: Normalization of the broken power law at a value of
+        mag_star
+       :type phi_star: float
+       :param mag_star: Break magnitude of the power law
+       :type mag_star: float
+       :param alpha: First slope of the broken power law
+       :type alpha: float
+       :param beta: Second slope of the broken power law
+       :type beta: float
+       :param delta: Smoothness parameter
+       :type delta: float
+       :return: Value of the broken double power law at a magnitude of M
+       :rtype: float or np.ndarray
+       """
+
+    A = pow(10, 0.4 * (alpha + 1) * (mag - mag_star))
+
+    B = pow(10, 0.4 * (mag - mag_star))**(1./delta)
+
+    return phi_star * (0.5 * (1 + B))**((alpha-beta)*delta)
+
+
+
 def lum_double_power_law(lum, phi_star, lum_star, alpha, beta):
     """Evaluate a broken double power law luminosity function as a function
     of luminosity.
@@ -1192,6 +1222,200 @@ class DoublePowerLawLF(LuminosityFunction):
         LStar_nu = c * 10 ** (-0.4 * (lum_star + 48.6))
 
         return mag_double_power_law(lum, phi_star, lum_star, alpha, beta) * LStar_nu
+
+
+
+
+class SmoothDoublePowerLawLF(LuminosityFunction):
+    """ Luminosity function, which takes the functional form of a double
+    power law with the luminosity in absolute magnitudes.
+
+    The luminosity function has four main parameters:
+
+    - "phi_star": the overall normalization
+    - "lum_star": the break luminosity/magnitude where the power law slopes
+      change.
+    - "alpha": the first power law slope
+    - "beta": the second power law slope
+
+    """
+
+    def __init__(self, parameters, param_functions, lum_type=None,
+                 cosmology=None, ref_cosmology=None, ref_redsh=None, verbose=1):
+        """Initialization of the double power law luminosity function class.
+        """
+
+        # The main parameters are the parameters which get passed into the
+        # functional form of the luminosity function, they can themselves be
+        # functions parameters (incl. redshift and luminosity dependence).
+        self.main_parameters = ['phi_star', 'lum_star', 'alpha', 'beta',
+                                'delta']
+
+        # Initialize the parent class
+        super(SmoothDoublePowerLawLF, self).__init__(parameters, param_functions,
+                                               self.main_parameters,
+                                               lum_type=lum_type,
+                                               cosmology=cosmology,
+                                               ref_cosmology=ref_cosmology,
+                                               ref_redsh = ref_redsh,
+                                               verbose=verbose)
+
+    def evaluate(self, lum, redsh, parameters=None):
+        """Evaluate the double power law as a function of magnitude ("lum")
+        and redshift ("redsh").
+
+        Function to be evaluated: atelier.lumfun.mag_double_power_law()
+
+        :param lum: Luminosity for evaluation
+        :type lum: float or numpy.ndarray
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param parameters: Dictionary of parameters used for this specific
+            calculation. This does not replace the parameters with which the
+            luminosity function was initialized. (default=None)
+        :type parameters: dict(atelier.lumfun.Parameters)
+        :return: Luminosity function value
+        :rtype: (numpy.ndarray,numpy.ndarray)
+        """
+
+        if parameters is None:
+            parameters = self.parameters.copy()
+
+        main_parameter_values = self.evaluate_main_parameters(lum, redsh,
+                                                        parameters=parameters)
+
+        phi_star = main_parameter_values['phi_star']
+        lum_star = main_parameter_values['lum_star']
+        alpha = main_parameter_values['alpha']
+        beta = main_parameter_values['beta']
+        delta = main_parameter_values['delta']
+
+        # TODO: Try to precalculate factors in init for better performance
+        if self.cosmology is not None and self.ref_cosmology is not \
+                None:
+
+
+            distmod_ref = self.ref_cosmology.distmod(self.ref_redsh)
+            distmod_cos = self.cosmology.distmod(self.ref_redsh)
+
+            # Convert luminosity according to new cosmology
+            if self.lum_type in ['M1450']:
+                self.cosm_lum_conv = distmod_ref.value - distmod_cos.value
+            else:
+                raise NotImplementedError(
+                    '[ERROR] Conversions for luminosity '
+                    'type {} are not implemented.'.format(
+                        self.lum_type))
+
+            self.cosm_density_conv = self.ref_cosmology.h ** 3 / \
+                                     self.cosmology.h ** 3
+
+            lum_star = lum_star + self.cosm_lum_conv
+            phi_star = phi_star * self.cosm_density_conv
+
+        return mag_smooth_double_power_law(lum, phi_star, lum_star, alpha,
+                                           beta, delta)
+
+    # def calc_ionizing_emissivity_at_1450A(self, redsh, lum_range, **kwargs):
+    #     """Calculate the ionizing emissivity at rest-frame 1450A,
+    #     :math:`\epsilon_{1450}`, in units of
+    #     erg s^-1 Hz^-1 Mpc^-3.
+    #
+    #     This function integrates the luminosity function at redshift "redsh"
+    #     over the luminosity interval "lum_range" to calculate the ionizing
+    #     emissivity at rest-frame 1450A.
+    #
+    #     Calling this function is only valid if the luminosity function
+    #     "lum_type" argument is "lum_type"="M1450".
+    #
+    #     :param redsh: Redshift for evaluation
+    #     :type redsh: float or numpy.ndarray
+    #     :param lum_range: Luminosity range
+    #     :type lum_range: tuple
+    #     :return: Ionizing emissivity (erg s^-1 Hz^-1 Mpc^-3)
+    #     :rtype: float
+    #     """
+    #
+    #     if self.lum_type != 'M1450':
+    #         raise ValueError('[ERROR] Luminosity function is not defined as a'
+    #                          ' function of M1450. Therefore, this calculating'
+    #                          ' the ionizing emissivity with this function is'
+    #                          ' not valid')
+    #
+    #     # Get keyword arguments for the integration
+    #     int_kwargs = {}
+    #     # int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
+    #     # int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
+    #     # int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+    #     int_kwargs.setdefault('epsabs', kwargs.pop('epsabs', 1.49e-08))
+    #     int_kwargs.setdefault('epsrel', kwargs.pop('epsrel', 1.49e-08))
+    #
+    #     # Integrate luminosity function times L1450 over luminosity
+    #     # integral = integrate.romberg(self._ionizing_emissivity_integrand,
+    #     #                              lum_range[0],
+    #     #                              lum_range[1],
+    #     #                              args=(redsh,),
+    #     #                              **int_kwargs)
+    #
+    #     integral = integrate.quad(self._ionizing_emissivity_integrand,
+    #                                  lum_range[0],
+    #                                  lum_range[1],
+    #                                  args=(redsh,),
+    #                                  **int_kwargs)[0]
+    #
+    #     return integral
+    #
+    # def _ionizing_emissivity_integrand(self, lum, redsh):
+    #     """Internal function that provides the integrand for the ionizing
+    #     emissivity.
+    #
+    #     :param lum: Luminosity for evaluation
+    #     :type lum: float or numpy.ndarray
+    #     :param redsh: Redshift for evaluation
+    #     :type redsh: float or numpy.ndarray
+    #     :return: Ionizing emissivity per magnitude (erg s^-1 Hz^-1 Mpc^-3
+    #     M_1450^-1)
+    #     :rtype: float
+    #
+    #     """
+    #     # Evaluate parameters
+    #     parameters = self.parameters.copy()
+    #     main_parameter_values = self.evaluate_main_parameters(lum, redsh,
+    #                                                           parameters=parameters)
+    #     # Modify slopes to integrate over Phi L dM
+    #     phi_star = main_parameter_values['phi_star']
+    #     lum_star = main_parameter_values['lum_star']
+    #     alpha = main_parameter_values['alpha']+1
+    #     beta = main_parameter_values['beta']+1
+    #
+    #     # Convert to different cosmology
+    #     # TODO: Move to integral function for better performance!
+    #     if self.cosmology is not None and self.ref_cosmology is not \
+    #             None:
+    #
+    #         distmod_ref = self.ref_cosmology.distmod(self.ref_redsh)
+    #         distmod_cos = self.cosmology.distmod(self.ref_redsh)
+    #
+    #         # Convert luminosity according to new cosmology
+    #         if self.lum_type in ['M1450']:
+    #             self.cosm_lum_conv = distmod_ref.value - distmod_cos.value
+    #         else:
+    #             raise NotImplementedError(
+    #                 '[ERROR] Conversions for luminosity '
+    #                 'type {} are not implemented.'.format(
+    #                     self.lum_type))
+    #
+    #         self.cosm_density_conv = self.ref_cosmology.h ** 3 / \
+    #                                  self.cosmology.h ** 3
+    #
+    #         lum_star = lum_star + self.cosm_lum_conv
+    #         phi_star = phi_star * self.cosm_density_conv
+    #
+    #     # Reproducing Ian's function (for now)
+    #     c = 4. * np.pi * (10 * units.pc.to(units.cm)) ** 2
+    #     LStar_nu = c * 10 ** (-0.4 * (lum_star + 48.6))
+    #
+    #     return mag_double_power_law(lum, phi_star, lum_star, alpha, beta) * LStar_nu
 
 
 
@@ -2706,6 +2930,198 @@ class Schindler2019_2p9_QLF(DoublePowerLawLF):
                                                      ref_redsh=ref_redsh,
                                                      cosmology=cosmology)
 
+
+
+class PanZhiwei2022_3p8_QLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Zhiwei Pan+2022 at z~3.8.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2022ApJ...928..172P/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+
+    This implementation adopts the double power law fit presented in Table 5
+    denoted as (O+S+L) "Best fit".
+    """
+
+
+    def __init__(self, cosmology=None):
+        """Initialize the PanZhiwei+2022 type-I quasar UV luminosity function.
+        """
+
+        # Fit parameters from Table 5
+        log_phi_star = Parameter(-7.2, 'log_phi_star',
+                             one_sigma_unc=[0.2, 0.2])
+
+        lum_star = Parameter(-26.7, 'lum_star', one_sigma_unc=[0.2, 0.3])
+
+        alpha = Parameter(-1.7, 'alpha', one_sigma_unc=[0.1, 0.2])
+
+        beta = Parameter(-4.0, 'beta', one_sigma_unc=[0.2, 0.2])
+
+
+        parameters = {'log_phi_star': log_phi_star,
+                      'lum_star': lum_star,
+                      'alpha': alpha,
+                      'beta': beta}
+
+        param_functions = {'phi_star': self.phi_star}
+
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 3.8
+
+        super(PanZhiwei2022_3p8_QLF, self).__init__(parameters, param_functions,
+                                                     lum_type=lum_type,
+                                                     ref_cosmology=ref_cosmology,
+                                                     ref_redsh=ref_redsh,
+                                                     cosmology=cosmology)
+
+    @staticmethod
+    def phi_star(redsh, log_phi_star):
+        """Calculate the redshift dependent luminosity function normalization.
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param log_phi_star: Logarithmic source density at z=6
+        :type log_phi_star: float
+        :return:
+        """
+
+        return 10 ** log_phi_star
+
+
+class PanZhiwei2022_4p25_QLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Zhiwei Pan+2022 at z~4.25.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2022ApJ...928..172P/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+
+    This implementation adopts the double power law fit presented in Table 5
+    denoted as (O+S+L) "Best fit".
+    """
+
+
+    def __init__(self, cosmology=None):
+        """Initialize the PanZhiwei+2022 type-I quasar UV luminosity function.
+        """
+
+        # Fit parameters from Table 5
+        log_phi_star = Parameter(-7.6, 'log_phi_star',
+                             one_sigma_unc=[0.4, 0.3])
+
+        lum_star = Parameter(-26.6, 'lum_star', one_sigma_unc=[0.5, 0.5])
+
+        alpha = Parameter(-1.6, 'alpha', one_sigma_unc=[0.3, 0.4])
+
+        beta = Parameter(-3.7, 'beta', one_sigma_unc=[0.4, 0.3])
+
+
+        parameters = {'log_phi_star': log_phi_star,
+                      'lum_star': lum_star,
+                      'alpha': alpha,
+                      'beta': beta}
+
+        param_functions = {'phi_star': self.phi_star}
+
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 4.25
+
+        super(PanZhiwei2022_4p25_QLF, self).__init__(parameters,
+                                                    param_functions,
+                                                     lum_type=lum_type,
+                                                     ref_cosmology=ref_cosmology,
+                                                     ref_redsh=ref_redsh,
+                                                     cosmology=cosmology)
+
+    @staticmethod
+    def phi_star(redsh, log_phi_star):
+        """Calculate the redshift dependent luminosity function normalization.
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param log_phi_star: Logarithmic source density at z=6
+        :type log_phi_star: float
+        :return:
+        """
+
+        return 10 ** log_phi_star
+
+
+
+class PanZhiwei2022_4p7_QLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Zhiwei Pan+2022 at z~4.7.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2022ApJ...928..172P/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+
+    This implementation adopts the double power law fit presented in Table 5
+    denoted as (O+S+L) "Best fit".
+    """
+
+
+    def __init__(self, cosmology=None):
+        """Initialize the PanZhiwei+2022 type-I quasar UV luminosity function.
+        """
+
+        # Fit parameters from Table 5
+        log_phi_star = Parameter(-8.0, 'log_phi_star',
+                             one_sigma_unc=[0.5, 0.8])
+
+        lum_star = Parameter(-26.7, 'lum_star', one_sigma_unc=[0.8, 1.5])
+
+        alpha = Parameter(-1.8, 'alpha', one_sigma_unc=[0.2, 0.4])
+
+        beta = Parameter(-3.5, 'beta', one_sigma_unc=[1.2, 0.7])
+
+
+        parameters = {'log_phi_star': log_phi_star,
+                      'lum_star': lum_star,
+                      'alpha': alpha,
+                      'beta': beta}
+
+        param_functions = {'phi_star': self.phi_star}
+
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 4.7
+
+        super(PanZhiwei2022_4p7_QLF, self).__init__(parameters,
+                                                    param_functions,
+                                                     lum_type=lum_type,
+                                                     ref_cosmology=ref_cosmology,
+                                                     ref_redsh=ref_redsh,
+                                                     cosmology=cosmology)
+
+    @staticmethod
+    def phi_star(redsh, log_phi_star):
+        """Calculate the redshift dependent luminosity function normalization.
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param log_phi_star: Logarithmic source density at z=6
+        :type log_phi_star: float
+        :return:
+        """
+
+        return 10 ** log_phi_star
 
 
 class Onken2022_Niida_4p52_QLF(DoublePowerLawLF):
