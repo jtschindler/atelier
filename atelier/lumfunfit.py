@@ -468,6 +468,6 @@ class LuminosityFunctionFit(object):
         use_prior = False
 
         result = fit_method(self.log_probability, np.array(initial_guess),
-                   args=(lumfun,use_prior),**self.nelder_mead_kwargs)
+                   args=(lumfun, use_prior), **self.nelder_mead_kwargs)
 
         return result

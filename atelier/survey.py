@@ -90,6 +90,21 @@ class Survey(object):
         self.sky_area = sky_area
         self.sky_area_srd = sky_area / 41253. * 4 * np.pi
 
+        # For calculating the luminosity function fit
+        self.lum_range = lum_range
+        self.redsh_range = redsh_range
+
+        if self.lum_range is not None:
+            obj_df.query('{} < {} < {}'.format(self.lum_range[0],
+                                               lum_colname,
+                                               self.lum_range[1]),
+                         inplace=True)
+        if self.lum_range is not None:
+            obj_df.query('{} < {} < {}'.format(self.redsh_range[0],
+                                               redsh_colname,
+                                               self.redsh_range[1]),
+                         inplace=True)
+
         self.obj_lum = obj_df.loc[:, lum_colname].to_numpy()
         self.obj_redsh = obj_df.loc[:, redsh_colname].to_numpy()
 
@@ -97,9 +112,6 @@ class Survey(object):
         self.lum_colname = lum_colname
         self.redsh_colname = redsh_colname
 
-        # For calculating the luminosity function fit
-        self.lum_range = lum_range
-        self.redsh_range = redsh_range
 
         self.conf_interval = conf_interval
 

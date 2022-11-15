@@ -760,7 +760,7 @@ class LuminosityFunction(object):
 
         # Get keyword arguments for the integration
         int_kwargs = {}
-        int_kwargs.setdefault('epqsabs', kwargs.pop('epsabs', 1e-3))
+        int_kwargs.setdefault('epsabs', kwargs.pop('epsabs', 1e-3))
         int_kwargs.setdefault('epsrel', kwargs.pop('epsrel', 1e-3))
 
         integrand = self._luminosity_density_integrand
@@ -1319,106 +1319,106 @@ class SmoothDoublePowerLawLF(LuminosityFunction):
         return mag_smooth_double_power_law(lum, phi_star, lum_star, alpha,
                                            beta, log_delta)
 
-    # def calc_ionizing_emissivity_at_1450A(self, redsh, lum_range, **kwargs):
-    #     """Calculate the ionizing emissivity at rest-frame 1450A,
-    #     :math:`\epsilon_{1450}`, in units of
-    #     erg s^-1 Hz^-1 Mpc^-3.
-    #
-    #     This function integrates the luminosity function at redshift "redsh"
-    #     over the luminosity interval "lum_range" to calculate the ionizing
-    #     emissivity at rest-frame 1450A.
-    #
-    #     Calling this function is only valid if the luminosity function
-    #     "lum_type" argument is "lum_type"="M1450".
-    #
-    #     :param redsh: Redshift for evaluation
-    #     :type redsh: float or numpy.ndarray
-    #     :param lum_range: Luminosity range
-    #     :type lum_range: tuple
-    #     :return: Ionizing emissivity (erg s^-1 Hz^-1 Mpc^-3)
-    #     :rtype: float
-    #     """
-    #
-    #     if self.lum_type != 'M1450':
-    #         raise ValueError('[ERROR] Luminosity function is not defined as a'
-    #                          ' function of M1450. Therefore, this calculating'
-    #                          ' the ionizing emissivity with this function is'
-    #                          ' not valid')
-    #
-    #     # Get keyword arguments for the integration
-    #     int_kwargs = {}
-    #     # int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
-    #     # int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
-    #     # int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
-    #     int_kwargs.setdefault('epsabs', kwargs.pop('epsabs', 1.49e-08))
-    #     int_kwargs.setdefault('epsrel', kwargs.pop('epsrel', 1.49e-08))
-    #
-    #     # Integrate luminosity function times L1450 over luminosity
-    #     # integral = integrate.romberg(self._ionizing_emissivity_integrand,
-    #     #                              lum_range[0],
-    #     #                              lum_range[1],
-    #     #                              args=(redsh,),
-    #     #                              **int_kwargs)
-    #
-    #     integral = integrate.quad(self._ionizing_emissivity_integrand,
-    #                                  lum_range[0],
-    #                                  lum_range[1],
-    #                                  args=(redsh,),
-    #                                  **int_kwargs)[0]
-    #
-    #     return integral
-    #
-    # def _ionizing_emissivity_integrand(self, lum, redsh):
-    #     """Internal function that provides the integrand for the ionizing
-    #     emissivity.
-    #
-    #     :param lum: Luminosity for evaluation
-    #     :type lum: float or numpy.ndarray
-    #     :param redsh: Redshift for evaluation
-    #     :type redsh: float or numpy.ndarray
-    #     :return: Ionizing emissivity per magnitude (erg s^-1 Hz^-1 Mpc^-3
-    #     M_1450^-1)
-    #     :rtype: float
-    #
-    #     """
-    #     # Evaluate parameters
-    #     parameters = self.parameters.copy()
-    #     main_parameter_values = self.evaluate_main_parameters(lum, redsh,
-    #                                                           parameters=parameters)
-    #     # Modify slopes to integrate over Phi L dM
-    #     phi_star = main_parameter_values['phi_star']
-    #     lum_star = main_parameter_values['lum_star']
-    #     alpha = main_parameter_values['alpha']+1
-    #     beta = main_parameter_values['beta']+1
-    #
-    #     # Convert to different cosmology
-    #     # TODO: Move to integral function for better performance!
-    #     if self.cosmology is not None and self.ref_cosmology is not \
-    #             None:
-    #
-    #         distmod_ref = self.ref_cosmology.distmod(self.ref_redsh)
-    #         distmod_cos = self.cosmology.distmod(self.ref_redsh)
-    #
-    #         # Convert luminosity according to new cosmology
-    #         if self.lum_type in ['M1450']:
-    #             self.cosm_lum_conv = distmod_ref.value - distmod_cos.value
-    #         else:
-    #             raise NotImplementedError(
-    #                 '[ERROR] Conversions for luminosity '
-    #                 'type {} are not implemented.'.format(
-    #                     self.lum_type))
-    #
-    #         self.cosm_density_conv = self.ref_cosmology.h ** 3 / \
-    #                                  self.cosmology.h ** 3
-    #
-    #         lum_star = lum_star + self.cosm_lum_conv
-    #         phi_star = phi_star * self.cosm_density_conv
-    #
-    #     # Reproducing Ian's function (for now)
-    #     c = 4. * np.pi * (10 * units.pc.to(units.cm)) ** 2
-    #     LStar_nu = c * 10 ** (-0.4 * (lum_star + 48.6))
-    #
-    #     return mag_double_power_law(lum, phi_star, lum_star, alpha, beta) * LStar_nu
+    def calc_ionizing_emissivity_at_1450A(self, redsh, lum_range, **kwargs):
+        """Calculate the ionizing emissivity at rest-frame 1450A,
+        :math:`\epsilon_{1450}`, in units of
+        erg s^-1 Hz^-1 Mpc^-3.
+
+        This function integrates the luminosity function at redshift "redsh"
+        over the luminosity interval "lum_range" to calculate the ionizing
+        emissivity at rest-frame 1450A.
+
+        Calling this function is only valid if the luminosity function
+        "lum_type" argument is "lum_type"="M1450".
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param lum_range: Luminosity range
+        :type lum_range: tuple
+        :return: Ionizing emissivity (erg s^-1 Hz^-1 Mpc^-3)
+        :rtype: float
+        """
+
+        if self.lum_type != 'M1450':
+            raise ValueError('[ERROR] Luminosity function is not defined as a'
+                             ' function of M1450. Therefore, this calculating'
+                             ' the ionizing emissivity with this function is'
+                             ' not valid')
+
+        # Get keyword arguments for the integration
+        int_kwargs = {}
+        # int_kwargs.setdefault('divmax', kwargs.pop('divmax', 20))
+        # int_kwargs.setdefault('tol', kwargs.pop('epsabs', 1e-3))
+        # int_kwargs.setdefault('rtol', kwargs.pop('epsrel', 1e-3))
+        int_kwargs.setdefault('epsabs', kwargs.pop('epsabs', 1.49e-08))
+        int_kwargs.setdefault('epsrel', kwargs.pop('epsrel', 1.49e-08))
+
+        # Integrate luminosity function times L1450 over luminosity
+        # integral = integrate.romberg(self._ionizing_emissivity_integrand,
+        #                              lum_range[0],
+        #                              lum_range[1],
+        #                              args=(redsh,),
+        #                              **int_kwargs)
+
+        integral = integrate.quad(self._ionizing_emissivity_integrand,
+                                     lum_range[0],
+                                     lum_range[1],
+                                     args=(redsh,),
+                                     **int_kwargs)[0]
+
+        return integral
+
+    def _ionizing_emissivity_integrand(self, lum, redsh):
+        """Internal function that provides the integrand for the ionizing
+        emissivity.
+
+        :param lum: Luminosity for evaluation
+        :type lum: float or numpy.ndarray
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :return: Ionizing emissivity per magnitude (erg s^-1 Hz^-1 Mpc^-3
+        M_1450^-1)
+        :rtype: float
+
+        """
+        # Evaluate parameters
+        parameters = self.parameters.copy()
+        main_parameter_values = self.evaluate_main_parameters(lum, redsh,
+                                                              parameters=parameters)
+        # Modify slopes to integrate over Phi L dM
+        phi_star = main_parameter_values['phi_star']
+        lum_star = main_parameter_values['lum_star']
+        alpha = main_parameter_values['alpha']+1
+        beta = main_parameter_values['beta']+1
+
+        # Convert to different cosmology
+        # TODO: Move to integral function for better performance!
+        if self.cosmology is not None and self.ref_cosmology is not \
+                None:
+
+            distmod_ref = self.ref_cosmology.distmod(self.ref_redsh)
+            distmod_cos = self.cosmology.distmod(self.ref_redsh)
+
+            # Convert luminosity according to new cosmology
+            if self.lum_type in ['M1450']:
+                self.cosm_lum_conv = distmod_ref.value - distmod_cos.value
+            else:
+                raise NotImplementedError(
+                    '[ERROR] Conversions for luminosity '
+                    'type {} are not implemented.'.format(
+                        self.lum_type))
+
+            self.cosm_density_conv = self.ref_cosmology.h ** 3 / \
+                                     self.cosmology.h ** 3
+
+            lum_star = lum_star + self.cosm_lum_conv
+            phi_star = phi_star * self.cosm_density_conv
+
+        # Reproducing Ian's function (for now)
+        c = 4. * np.pi * (10 * units.pc.to(units.cm)) ** 2
+        LStar_nu = c * 10 ** (-0.4 * (lum_star + 48.6))
+
+        return mag_double_power_law(lum, phi_star, lum_star, alpha, beta) * LStar_nu
 
 
 
@@ -2439,13 +2439,13 @@ class Schindler2022QLF(DoublePowerLawLF):
 
 
         # ML fit parameters from the "standard" model in Table 5
-        log_phi_star_z6 = Parameter(-8.62, 'log_phi_star_z6')
+        log_phi_star_z6 = Parameter(-8.75, 'log_phi_star_z6')
 
-        lum_star = Parameter(-26.37, 'lum_star', one_sigma_unc=[0.9, 0.75])
+        lum_star = Parameter(-26.38, 'lum_star', one_sigma_unc=[0.60, 0.79])
 
-        alpha = Parameter(-1.60, 'alpha', one_sigma_unc=[0.34, 0.44])
+        alpha = Parameter(-1.70, 'alpha', one_sigma_unc=[0.19, 0.29])
 
-        beta = Parameter(-4.13, 'beta', one_sigma_unc=[0.31, 0.23])
+        beta = Parameter(-3.84, 'beta', one_sigma_unc=[1.21, 0.63])
 
         k = Parameter(-0.7, 'k')
 
@@ -4279,7 +4279,7 @@ giallongo2019_z5p05 = \
         'sigma_phi': np.array([[4.02, 2.31, 0.6, 0.54],
                                [7.12, 3.79, 1.61, 1.44]]) * 1E-6,
         'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
-        'redshift': 5.05,
+        'redshift': 5.6,
         'redshift_range': [5, 6.1]
         }
 
@@ -4354,41 +4354,66 @@ kim2021  = \
         }
 
 
-
-# Schindler et al. 2022 PS1 DQS QLF z~6 (preliminary results)
-# ,lum_bin_low,lum_bin_upp,redsh_bin_low,redsh_bin_upp,lum_bin_mid,redsh_bin_mid,lum_median,redsh_median,counts,filled_bin,raw_phi,phi,phi_unc_low,phi_unc_upp,bin_volume,bin_volume_corr
-# 0,-27.75,-27.25,5.65,6.25,-27.5,5.95,-27.321788254290745,5.835,6.0,True,1.0983160985499239e-10,1.4954091568811695e-10,-6.104982318407441e-11,6.104982318407443e-11,54629081809.15888,40122798315.0352
-# 1,-27.25,-26.75,5.65,6.25,-27.0,5.95,-27.0561869971362,5.817,15.0,True,2.7457902463748096e-10,4.02682051631445e-10,-1.0397205865234808e-10,1.0397205865234808e-10,54629081809.15888,37250232383.659256
-# 2,-26.75,-26.25,5.65,6.25,-26.5,5.95,-26.442706032549772,5.9,31.0,True,5.674633175841273e-10,1.0680949398823136e-09,-1.9183551427083293e-10,1.918355142708328e-10,54629081809.15888,29023637171.63166
-# 3,-26.25,-25.75,5.65,6.25,-26.0,5.95,-26.00959547932826,5.865,32.0,True,5.857685858932928e-10,2.2340520420018624e-09,-3.949283371057926e-10,3.9492833710579285e-10,54629081809.15888,14323748685.516666
-# 4,-25.75,-25.0,5.65,6.25,-25.375,5.95,-25.517733541706818,5.842,32.0,True,3.905123905955286e-10,4.920897967772284e-09,-8.699000806347206e-10,8.699000806347211e-10,81943622713.7383,6502878175.807121
-
-
 schindler2022 = \
     {'lum': np.array([-27.5, -27.0, -26.5, -26.0, -25.375]),
     'lum_bins': np.array([[-27.75, -27.25], [-27.25, -26.75], [-26.75, -26.25],
                           [-26.25, -25.75], [-25.75, -25.0]]),
-     'phi': np.array([1.4954091568811695e-10, 4.02682051631445e-10,
-                      1.0680949398823136e-09, 2.2340520420018624e-09,
-                      4.920897967772284e-09]),
+     'phi': np.array([1.4925734119219086e-10, 3.8109585059543343e-10,
+                      8.433440329101938e-10, 1.7002671246840014e-099,
+                      3.433265511360749e-09]),
      'phi_unit': units.Mpc ** -3 * units.mag ** -1,
      'lum_type': 'M1450',
      'lum_unit': units.mag,
-     'sigma_phi': np.array([[6.104982318407441e-11, 1.0397205865234808e-10,
-                             1.9183551427083293e-10, 3.949283371057926e-10,
-                             8.699000806347206e-10],
-                            [6.104982318407443e-11, 1.0397205865234808e-10,
-                             1.918355142708328e-10, 3.9492833710579285e-10,
-                             8.699000806347211e-10]]),
+     'sigma_phi': np.array([[5.920464696955311e-11, 9.729247866390617e-11,
+                             1.506503895812834e-10, 2.7825835990688776e-10,
+                             6.037443823093605e-10],
+                            [8.914923235074313e-11, 1.2598620075912893e-10,
+                             1.8030527016639774e-10, 3.2800004737690426e-10,
+                             7.205450300694091e-10]]),
      'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
      'redshift': 6,
      'redshift_range': [5.95, 6.25]
      }
 
+# https://ui.adsabs.harvard.edu/abs/2022ApJS..259...20H/abstract
+# z=6
+harikane2022 = \
+{'lum': np.array([-25.02, -24.52, -24.02, -23.52, -23.12, -22.82,
+                  -22.52, -22.22, -21.92, -21.62, -21.32, -21.02]),
+ 'phi': np.array([1.05e-8, 2.13e-8, 2.77e-8, 8.51e-8, 3.34e-7, 1.24e-6,
+                  2.67e-6, 4.48e-6, 1.10e-5, 3.69e-5, 7.35e-5, 1.77e-4]),
+
+ 'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+ 'lum_type': 'M1450', # should be MUV
+ 'lum_unit': units.mag,
+ 'sigma_phi': np.array([[1.05e-8, 2.13e-8, 2.23e-8, 2.25e-8, 0.72e-7, 0.14e-6,
+                         0.39e-6, 0.53e-6, 0.09e-5, 0.48e-5, 0.85e-5, 0.21e-4],
+                        [4.11e-8, 4.21e-8, 4.19e-8, 5.38e-8, 0.72e-7, 0.15e-6,
+                         0.39e-6, 0.53e-6, 0.09e-5, 0.48e-5, 0.85e-5,
+                         0.21e-4]]),
+ 'ref_cosmology': FlatLambdaCDM(H0=67.774, Om0=0.3089, Ob0=0.049),
+ 'redshift': 6,}
+
+
+# https://ui.adsabs.harvard.edu/abs/2020ApJ...897...94G/abstract
+grazian2020 = \
+{'lum': np.array([-22.33]),
+ 'phi': np.array([1.291e-6]),
+
+ 'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+ 'lum_type': 'M1450',
+ 'lum_unit': units.mag,
+ 'sigma_phi': np.array([[0.854e-6],
+                        [1.717e-6]]),
+ 'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+ 'redshift': 5.5,
+ 'redshift_range:': [5.0, 6.1]}
+
+
 
 def verification_plots_kulkarni2019QLF():
 
-    plot_defaults.set_paper_defaults()
+    # plot_defaults.set_paper_defaults()
 
     qlf = Kulkarni2019QLF()
 
@@ -4455,7 +4480,7 @@ def verification_plots_kulkarni2019QLF():
 
 def verification_plots_richards2006QLF():
 
-    plot_defaults.set_paper_defaults()
+    # plot_defaults.set_paper_defaults()
 
     qlf = Richards2006QLF()
 
