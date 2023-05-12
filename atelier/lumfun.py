@@ -999,11 +999,11 @@ class LuminosityFunction(object):
         redsh_func = interp1d(np.cumsum(redsh_n)/total, redsh_bins)
         # The total number of sources as rounded to an integer value across
         # the sky_area specified in the input argument.
-        total = np.int(np.round(total * sky_area_srd))
+        total = int(np.round(total * sky_area_srd))
         if verbose > 0:
             print('[INFO] Integration returned {} sources'.format(total))
 
-        # Draw random values from from the total number of sources
+        # Draw random values from the total number of sources
         np.random.seed(seed)
         redsh_rand = np.random.random(total)
         lum_rand = np.random.random(total)
