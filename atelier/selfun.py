@@ -11,10 +11,6 @@ from scipy.interpolate import RectBivariateSpline
 from scipy.stats import binned_statistic_2d
 
 
-# Tex font
-rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
-rc('text', usetex=True)
-
 
 class ClippedFunction(object):
     """A helper class to clip output between two values.

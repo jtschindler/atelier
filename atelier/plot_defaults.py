@@ -8,8 +8,6 @@ from cycler import cycler
 # matplotlib.font_manager._rebuild()
 
 
-
-
 def set_paper_defaults():
     # Defining the paper plotting style
 

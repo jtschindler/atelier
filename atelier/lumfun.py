@@ -36,6 +36,21 @@ def interp_dVdzdO(redsh_range, cosmo):
     return interp1d(redsharray, diff_co_vol)
 
 
+def mag_schechter_function(mag, phi_star, mag_star, alpha):
+    """ Evaluate a Schechter luminosity function as a function of magnitude.
+
+    :param mag:
+    :param phi_star:
+    :param mag_star:
+    :param alpha:
+    :return:
+    """
+
+    power_law = pow(10, 0.4 * (alpha + 1) * (mag_star - mag))
+    exponential = np.exp(-pow(10, 0.4 * (mag_star - mag)))
+
+    return phi_star*np.log(10)/2.5 * power_law * exponential
+
 def mag_double_power_law(mag, phi_star, mag_star, alpha, beta):
     """Evaluate a broken double power law luminosity function as a function
     of magnitude.
@@ -1609,6 +1624,58 @@ class SinglePowerLawLF(LuminosityFunction):
         return mag_single_power_law(lum, phi_star, lum_ref, alpha) * LStar_nu
 
 
+class SchechterLF(LuminosityFunction):
+    """
+    Schechter luminosity function
+    """
+
+    def __init__(self, parameters, param_functions, lum_type=None,
+                 ref_cosmology=None, ref_redsh=None, cosmology=None,
+                 verbose=1):
+        """Initialize the single power law luminosity function class.
+        """
+
+        self.main_parameters = ['phi_star', 'alpha', 'mag_star']
+
+        # Initialize the parent class
+        super(SchechterLF, self).__init__(parameters, param_functions,
+                                               self.main_parameters,
+                                               lum_type=lum_type,
+                                               ref_cosmology=ref_cosmology,
+                                               ref_redsh=ref_redsh,
+                                               cosmology=cosmology,
+                                               verbose=verbose)
+
+    def evaluate(self, lum, redsh, parameters=None):
+        """Evaluate the Schechter function as a function of magnitude ("lum")
+        and redshift ("redsh").
+
+        Function to be evaluated: atelier.lumfun.mag_schechter
+
+        :param lum: Luminosity for evaluation
+        :type lum: float or numpy.ndarray
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param parameters: Dictionary of parameters used for this specific
+            calculation. This does not replace the parameters with which the
+            luminosity function was initialized. (default=None)
+        :type parameters: dict(atelier.lumfun.Parameters)
+        :return: Luminosity function value
+        :rtype: (numpy.ndarray,numpy.ndarray)
+        """
+
+        if parameters is None:
+            parameters = self.parameters.copy()
+
+        main_parameter_values = self.evaluate_main_parameters(lum, redsh,
+                                                              parameters=parameters)
+
+        phi_star = main_parameter_values['phi_star']
+        mag_star = main_parameter_values['mag_star']
+        alpha = main_parameter_values['alpha']
+
+        return mag_schechter_function(lum, phi_star, mag_star, alpha)
+
 class ShenXuejian2020QLF(DoublePowerLawLF):
     """
     Shen+2020 bolometric quasar luminosity function; global fit B
@@ -2420,21 +2487,21 @@ class Matsuoka2018QLF(DoublePowerLawLF):
 
 
 
-class Schindler2022QLF(DoublePowerLawLF):
+class Schindler2023QLF(DoublePowerLawLF):
     """Implementation of the type-I quasar UV(M1450) luminosity function of
-    Schindler+2022 at z~6.
+    Schindler+2023 at z~6.
 
-    ADS reference: TBD
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2023ApJ...943...67S/abstract
 
     The luminosity function is parameterized as a double power law with the
     luminosity variable in absolute magnitudes at 1450A, M1450.
 
-    This implementation adopts the double power law fit presented in Table XXX
+    This implementation adopts the double power law fit presented in Table 4
     (first row).
     """
 
     def __init__(self, cosmology=None):
-        """Initialize the Matsuoka+2018 type-I quasar UV luminosity function.
+        """Initialize the Schindler+2023 type-I quasar UV luminosity function.
         """
 
 
@@ -2465,7 +2532,7 @@ class Schindler2022QLF(DoublePowerLawLF):
         ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
         ref_redsh = 6.0
 
-        super(Schindler2022QLF, self).__init__(parameters, param_functions,
+        super(Schindler2023QLF, self).__init__(parameters, param_functions,
                                                  lum_type=lum_type,
                                                  ref_cosmology=ref_cosmology,
                                                  ref_redsh=ref_redsh,
@@ -2490,6 +2557,75 @@ class Schindler2022QLF(DoublePowerLawLF):
 
         return phi_star_z6 * 10**(k * (redsh - z_ref))
 
+
+class Matsuoka2023QLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Matsuoka+2023 at z~7.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2023arXiv230511225M/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+    This implementation adopts the double power law fit presented in Table 7
+    (standard model).
+    """
+
+    def __init__(self, cosmology=None):
+        """Initialize the Matsuoka+2023 type-I quasar UV luminosity function.
+        """
+
+
+        # ML fit parameters from the "standard" model in Table 5
+        phi_star_z7 = Parameter(1.35E-9, 'phi_star_z7', one_sigma_unc=[
+            0.3E-9, 0.47E-9])
+
+        lum_star = Parameter(-25.60, 'lum_star', one_sigma_unc=[0.30, 0.40])
+
+        alpha = Parameter(-1.20, 'alpha')
+
+        beta = Parameter(-3.34, 'beta', one_sigma_unc=[0.57, 0.49])
+
+        k = Parameter(-0.78, 'k')
+
+        z_ref = Parameter(7, 'z_ref')
+
+        parameters = {'phi_star_z7': phi_star_z7,
+                      'lum_star': lum_star,
+                      'alpha': alpha,
+                      'beta': beta,
+                      'k': k,
+                      'z_ref': z_ref}
+
+        param_functions = {'phi_star': self.phi_star}
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 7.0
+
+        super(Matsuoka2023QLF, self).__init__(parameters, param_functions,
+                                                 lum_type=lum_type,
+                                                 ref_cosmology=ref_cosmology,
+                                                 ref_redsh=ref_redsh,
+                                                 cosmology=cosmology)
+
+    @staticmethod
+    def phi_star(redsh, phi_star_z7, k, z_ref):
+        """Calculate the redshift dependent luminosity function normalization.
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param phi_star_z7: Source density at z=6
+        :type phi_star_z7: float
+        :param k: Power law exponent of density evolution
+        :type k: float
+        :param z_ref: Reference redshift
+        :type z_ref: float
+        :return:
+        """
+
+        return phi_star_z7 * 10**(k * (redsh - z_ref))
 
 
 class Willott2010QLF(DoublePowerLawLF):
@@ -4010,6 +4146,20 @@ matsuoka2018 =  \
         }
 
 
+matsuoka2023 = \
+    {'lum': np.array([-23.25, -23.75, -24.25, -24.75, -25.25, -25.75, -26.25,
+                      -26.75, -27.5]),
+     'phi': np.array([2.5, 3.0, 3.5, 3.2, 1.58, 0.75, 0.63, 0.18, 0.082]) * 1e-9,
+     'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+     'lum_type': 'M1450',
+     'lum_unit': units.mag,
+     'sigma_phi': np.array([1.8, 1.5, 1.4, 1.3, 0.91, 0.53, 0.26, 0.10,
+                            0.047]) * 1e-9,
+     'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+     'redshift': 7,
+     'redshift_range': [6.55, 7.15]
+     }
+
 # M0 M1 Z0 Z1 M1450_Mean M1450_err z_Mean N N_corr Phi Phi_err
 # -27.6 -26.9 6.45 7.05 -27.1849570034 0.198454192575 6.68253 4 6.57997180974 1.49806504375e-10 4.76706351322e-11
 # -26.9 -26.2 6.45 7.05 -26.4394997883 0.141104303161 6.70167 9 15.7066648272 3.5759432125e-10 7.57916215887e-11
@@ -4376,6 +4526,7 @@ schindler2022 = \
      }
 
 # https://ui.adsabs.harvard.edu/abs/2022ApJS..259...20H/abstract
+# UV luminosity function (total: galaxy+ AGN)
 # z=6
 harikane2022 = \
 {'lum': np.array([-25.02, -24.52, -24.02, -23.52, -23.12, -22.82,
@@ -4393,6 +4544,44 @@ harikane2022 = \
                          0.21e-4]]),
  'ref_cosmology': FlatLambdaCDM(H0=67.774, Om0=0.3089, Ob0=0.049),
  'redshift': 6,}
+
+
+# z=7
+harikane2022z7 = \
+{'lum': np.array([-25.42, -24.92, -24.42, -23.92, -23.42, -22.92,
+                  -22.42, -21.92]),
+ 'phi': np.array([5.64E-9, 8.89E-9, 2.41E-8, 9.02E-8, 1.62E-7, 4.63E-7,
+                  1.95E-6, 3.47E-6]),
+
+ 'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+ 'lum_type': 'M1450', # should be MUV
+ 'lum_unit': units.mag,
+ 'sigma_phi': np.array([[5.64E-9, 7.41E-9, 0.98E-8, 1.66E-8, 0.23E-7,
+                         2.71E-7, 0.67E-6, 1.03E-6],
+                        [14.65E-9, 15.29E-9, 1.75E-8, 2.13E-8, 0.3E-7,
+                         7.53E-7, 1.13E-6, 1.7E-6]]),
+ 'ref_cosmology': FlatLambdaCDM(H0=67.774, Om0=0.3089, Ob0=0.049),
+ 'redshift': 7}
+
+
+# https://ui.adsabs.harvard.edu/abs/2021AJ....162...47B/abstract
+# z=7
+bouwens2021z7 = \
+{'lum': np.array([-22.19, -21.69, -21.19, -20.69, -20.19, -19.69,
+                  -19.19, -18.69, -17.94, -16.94]),
+ 'phi': np.array([1e-6, 41e-6, 47e-6, 198e-6, 283e-6, 589e-6,
+                  1172e-6, 1433e-6, 5760e-6, 8320e-6]),
+
+ 'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+ 'lum_type': 'M1450', # should be MUV
+ 'lum_unit': units.mag,
+ 'sigma_phi': np.array([[2e-6, 11e-6, 15e-6, 36e-6, 66e-6, 126e-6, 336e-6,
+                         419e-6, 1440e-6, 2900e-6],
+                        [2e-6, 11e-6, 15e-6, 36e-6, 66e-6, 126e-6, 336e-6,
+                         419e-6, 1440e-6, 2900e-6]]),
+ 'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.30),
+ 'redshift': 7}
+
 
 
 # https://ui.adsabs.harvard.edu/abs/2020ApJ...897...94G/abstract

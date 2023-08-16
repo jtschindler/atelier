@@ -11,9 +11,6 @@ from scipy.stats import binned_statistic_2d
 from scipy.interpolate import RectBivariateSpline, griddata, SmoothBivariateSpline
 
 
-# Tex font
-rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
-rc('text', usetex=True)
 
 # Adopted from simqso.sqanalysis (Ian McGreer)
 # class Interpolator(object):
