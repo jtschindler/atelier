@@ -2275,6 +2275,72 @@ class WangFeige2019SPLQLF(SinglePowerLawLF):
                                                   ref_redsh=ref_redsh)
 
 
+class Matsuoka2023DPLQLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Wang+2019 at z~6.7.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2019ApJ...884...30W/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+    This implementation adopts the double power law fit described in Section 5.5
+    """
+
+    def __init__(self, cosmology=None):
+        """Initialize the Wang+2019 type-I quasar UV luminosity function.
+
+        """
+
+        phi_star_z7 = Parameter(1.35e-9, 'phi_star_z6p7', one_sigma_unc=None)
+        lum_star = Parameter(-25.6, 'lum_star', one_sigma_unc=None)
+
+        alpha = Parameter(-1.2, 'gamma_one', one_sigma_unc=None)
+        beta = Parameter(-3.34, 'gamma_two', one_sigma_unc=None)
+
+        k = Parameter(-0.78, 'k')
+
+        z_ref = Parameter(7., 'z_ref')
+
+        parameters = {'phi_star_z7': phi_star_z7,
+                      'lum_star': lum_star,
+                      'alpha': alpha,
+                      'beta': beta,
+                      'k': k,
+                      'z_ref': z_ref}
+
+        param_functions = {'phi_star': self.phi_star}
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 7.
+
+        super(Matsuoka2023DPLQLF, self).__init__(parameters, param_functions,
+                                                  lum_type=lum_type,
+                                                  ref_cosmology=ref_cosmology,
+                                                  ref_redsh=ref_redsh,
+                                                  cosmology=cosmology)
+
+
+    @staticmethod
+    def phi_star(redsh, phi_star_z7, k, z_ref):
+        """Calculate the redshift dependent luminosity function normalization.
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param phi_star_z7: Logarithmic source density at z=7
+        :type phi_star_z7: float
+        :param k: Power law exponent of density evolution
+        :type k: float
+        :param z_ref: Reference redshift
+        :type z_ref: float
+        :return:
+        """
+
+        return phi_star_z7 * 10**(k * (redsh - z_ref))
+
+
 class WangFeige2019DPLQLF(DoublePowerLawLF):
     """Implementation of the type-I quasar UV(M1450) luminosity function of
     Wang+2019 at z~6.7.
