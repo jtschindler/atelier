@@ -24,19 +24,6 @@ seed = 274245628
 sample_file = os.path.join(get_HI_DW_path(), 'euclid_forecast/euclid_samples_z_{}-{}_J_{}-{}_seed_{}.hdf5'.format(*z_range, *J_range, seed))
 plotting = True
 
-#def k_corr(z, a_nu=-0.5):
-#    return -2.5*(1+a_nu)*np.log10(1+z) - 2.5*a_nu*np.log10(145/1254)
-
-#def dist_mod(z, cosmology=Planck18):
-#    return 5*np.log10((cosmology.luminosity_distance(z)).to('pc').value/10)
-
-#def Jmag_to_M1450(Jmag, z, cosmology=Planck18, a_nu=-.5):
-#    return Jmag + dist_mod(z, cosmology=cosmology) + k_corr(z, a_nu=a_nu)
-
-from astropy import units as u
-from astropy.cosmology import Planck18
-from enigma.tpe.m912 import lamL_lam as lamL_lam
-
 def Jmag_to_M1450(Jmag, z, cosmology=Planck18, ALPHA_EUV=1.7):
 
     lam_l = lamL_lam(z, Jmag, 'J', 1450.0, cosmo=cosmology, IGNORE=False, ALPHA_EUV=ALPHA_EUV)*u.erg/u.s
