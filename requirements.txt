@@ -1,4 +1,4 @@
-# Required packages for Sculptor
+# Required packages for Atelier
 # run: pip install -r requirements.txt
 
 astropy>=4.0.2

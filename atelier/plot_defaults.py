@@ -13,8 +13,8 @@ def set_paper_defaults():
 
     matplotlib.rc('text', usetex=True)
 
-    matplotlib.rcParams['text.latex.preamble'] = [r"\usepackage{amsmath}"]
-    matplotlib.rcParams['text.latex.preamble'] = [r"\usepackage{amssymb}"]
+    # matplotlib.rcParams['text.latex.preamble'] = [r"\usepackage{amsmath}"]
+    # matplotlib.rcParams['text.latex.preamble'] = [r"\usepackage{amssymb}"]
     matplotlib.rcParams['xtick.major.size'] = 4.5
     matplotlib.rcParams['xtick.minor.size'] = 3
     matplotlib.rcParams['ytick.major.size'] = 4.5
@@ -38,8 +38,8 @@ def set_presentation_defaults():
     matplotlib.rcParams['mathtext.it'] = 'Roboto'
     matplotlib.rcParams['mathtext.rm'] = 'Roboto'
 
-    matplotlib.rcParams['text.latex.preamble'] = [r"\usepackage{amsmath}"]
-    matplotlib.rcParams['text.latex.preamble'] = [r"\usepackage{amssymb}"]
+    # matplotlib.rcParams['text.latex.preamble'] = [r"\usepackage{amsmath}"]
+    # matplotlib.rcParams['text.latex.preamble'] = [r"\usepackage{amssymb}"]
     matplotlib.rcParams['xtick.major.size'] = 4.5
     matplotlib.rcParams['xtick.minor.size'] = 3
     matplotlib.rcParams['ytick.major.size'] = 4.5

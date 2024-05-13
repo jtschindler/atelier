@@ -16,7 +16,7 @@ def return_poisson_confidence(n, bound_low=0.15865, bound_upp=0.84135):
     Return the Poisson confidence interval boundaries for the lower and
     upper bound given a number of events n.
 
-    The default values for ther lower and upper bounds are equivalent to the
+    The default values for the lower and upper bounds are equivalent to the
     1 sigma confidence interval of a normal distribution.
 
     :param n:

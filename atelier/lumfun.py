@@ -176,7 +176,7 @@ class Parameter(object):
         Value of the parameter
     name : string
         Name of the parameter
-    bounds : tupler
+    bounds : tuple
         Bounds of the parameter, used in fitting
     vary : bool
         Boolean to indicate whether this parameter should be varied, used in
@@ -4509,7 +4509,7 @@ schindler2022 = \
     'lum_bins': np.array([[-27.75, -27.25], [-27.25, -26.75], [-26.75, -26.25],
                           [-26.25, -25.75], [-25.75, -25.0]]),
      'phi': np.array([1.4925734119219086e-10, 3.8109585059543343e-10,
-                      8.433440329101938e-10, 1.7002671246840014e-099,
+                      8.433440329101938e-10, 1.7002671246840014e-09,
                       3.433265511360749e-09]),
      'phi_unit': units.Mpc ** -3 * units.mag ** -1,
      'lum_type': 'M1450',
@@ -4598,6 +4598,67 @@ grazian2020 = \
  'redshift': 5.5,
  'redshift_range:': [5.0, 6.1]}
 
+
+#-------------------------
+# LRD luminosity functions
+#-------------------------
+
+harikane2023z7_arxiv = \
+{'lum': np.array([-21.5]),
+ 'phi': np.array([1.6e-6]),
+ 'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+ 'sigma_phi': np.array([[1.4e-6],
+                        [3.7e-6]]),
+ 'lum_type': 'M1450',  # should be MUV
+ 'lum_unit': units.mag,
+ 'ref_cosmology': FlatLambdaCDM(H0=67.66, Om0=0.3111),
+ 'redshift': 7}
+
+# https://ui.adsabs.harvard.edu/abs/2024ApJ...964...39G
+
+greene2024z7 = \
+{'lum': np.array([-19.0, -18.0, -17.0]),
+ 'phi': np.array([1.3, 2.6, 4.0]) * 1e-5,
+ 'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+'sigma_phi': np.array([[0.5, 0.7, 1.0],
+                       [0.5, 0.7, 1.0]]) * 1e-5,
+ 'lum_type': 'M1450',  
+ 'lum_unit': units.mag,
+ 'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+ 'redshift': 7.5}
+
+greene2024z7_bol = \
+{'lum': np.array([1e+45, 1e+46]),
+ 'phi': np.array([2.6, 1.3]) * 1e-5,
+ 'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+'sigma_phi': np.array([[0.5, 0.5],
+                       [0.5, 0.5]]) * 1e-5,
+ 'lum_type': 'M1450',  # should be Lbol
+ 'lum_unit': units.mag,
+ 'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+ 'redshift': 7.5}
+
+
+kokorev2024z7_arxiv = \
+{'lum': np.array([-21.0, -20.0, -19.0, -18.0, -17.0]),
+ 'log_phi': np.array([-6.12, -5.58, -5.02, -4.95, -4.58]),
+ # 'phi': np.array([1.3, 2.6, 4.0]) ,
+ 'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+ 'sigma_log_phi': np.array([0.92, 0.55, 0.30, 0.28, 0.75]),
+ 'lum_type': 'M1450',  # should be MUV
+ 'lum_unit': units.mag,
+ 'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+ 'redshift': 7.5}
+
+kokorev2024z7_bol_arxiv = \
+{'lum': np.array([1e+44, 1e+45, 1e+46, 1e+47]),
+ 'log_phi': np.array([-5.48, -4.51, -4.76, -5.47]),
+ 'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+'sigma_log_phi': np.array([1, 0.23, 0.15, 0.29]),
+ 'lum_type': 'M1450',  # should be Lbol
+ 'lum_unit': units.mag,
+ 'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
+ 'redshift': 7.5}
 
 
 def verification_plots_kulkarni2019QLF():
