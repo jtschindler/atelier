@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+import emcee
 from astropy import units
 from scipy import integrate
 from scipy.interpolate import interp1d
@@ -876,7 +877,7 @@ class LuminosityFunction(object):
 
         return outer_integral
 
-    def redshift_density(self, redsh, lum_range, dVdzdO, **kwargs):
+    def redshift_density(self, redsh, lum_range, dVdzdO, app2absmag=lambda x: x[0], **kwargs):
         """Calculate the volumetric source density described by the luminosity
         function at a given redshift and over a luminosity interval in units of
         per steradian per redshift.
@@ -888,6 +889,8 @@ class LuminosityFunction(object):
         :param dVdzdO: Differential comoving solid volume element (default =
             None)
         :type dVdzdO: function
+        :param app2absmag: Function to convert between different magnitudes, argument is x = (magnitude, redshift) (default = indentity function w.r.t. magnitude)
+        :type app2absmag: function
         :param kwargs:
         :return: :math:`\int \Phi(L,z) (dV/dz){d\Omega} dL`
         :rtype: float
@@ -907,8 +910,8 @@ class LuminosityFunction(object):
         #                              args=(redsh, dVdzdO), **int_kwargs)
 
         integral = integrate.quad(self._redshift_density_integrand,
-                                     lum_range[0],
-                                     lum_range[1],
+                                     app2absmag([lum_range[0], redsh]),
+                                     app2absmag([lum_range[1], redsh]),
                                      args=(redsh, dVdzdO), **int_kwargs)[0]
 
         return integral
@@ -1014,11 +1017,11 @@ class LuminosityFunction(object):
         redsh_func = interp1d(np.cumsum(redsh_n)/total, redsh_bins)
         # The total number of sources as rounded to an integer value across
         # the sky_area specified in the input argument.
-        total = np.int(np.round(total * sky_area_srd))
+        total = int(np.round(total * sky_area_srd))
         if verbose > 0:
             print('[INFO] Integration returned {} sources'.format(total))
 
-        # Draw random values from from the total number of sources
+        # Draw random values from the total number of sources
         np.random.seed(seed)
         redsh_rand = np.random.random(total)
         lum_rand = np.random.random(total)
@@ -1050,6 +1053,108 @@ class LuminosityFunction(object):
             lum_sample[source] = lum_func(lum_rand[source])
 
         return lum_sample, redsh_sample
+
+
+    def qlf_mcmc_wrapper(self, x, lum_range, redsh_range, cosmo, app2absmag):
+        """Wrapper function for the MCMC sampling routine in sample_mcmc.
+
+        :param x: Arguments of the probability density to sample from, i.e. x = (lum, redsh)
+        :type x: tuple
+        :param lum_range: Luminosity range to sample from
+        :type lum_range: tuple
+        :param redsh_range: Redshift range to sample from
+        :type redsh_range: tuple
+        :param cosmo: Cosmology
+        :type cosmo: astropy.cosmology.Cosmology
+        :param app2absmag: Function to convert between different magnitudes, argument is x = (lum, redsh) (default = indentity function w.r.t. lum)
+        :type app2absmag: function
+        :return: Log probability given the arguments x = (lum, redsh)
+        :rtype: float
+        """
+
+        # Get the separate arguments of the QLF
+        lum, redsh = x[0], x[1]
+
+        # If arguments are within the specified ranges, set the log probability according to the QLF value, otherwise assign zero probability
+        if lum >= lum_range[0] and lum <= lum_range[1] and redsh >= redsh_range[0] and redsh <= redsh_range[1]:
+            dVdzdO = cosmo.differential_comoving_volume(redsh).value
+            return np.log(self.evaluate(app2absmag([lum, redsh]), redsh) * dVdzdO)
+        else:
+            return -np.inf
+
+
+    def sample_mcmc(self, lum_range, redsh_range, cosmology, sky_area,
+               seed=1234, nwalkers=8, nsteps_warmup=5000, app2absmag=lambda x: x[0], verbose=1, **kwargs):
+        """Sample the luminosity function over a given luminosity and
+            redshift range using an MCMC sampler.
+
+        :param lum_range: Luminosity range
+        :type lum_range: tuple
+        :param redsh_range: Redshift range
+        :type redsh_range: tuple
+        :param cosmology: Cosmology (default = None)
+        :type cosmology: astropy.cosmology.Cosmology
+        :param sky_area: Area of the sky to be sampled in square degrees
+        :type sky_area: float
+        :param seed: Random seed for the MCMC sampling
+        :type seed: int
+        :param nwalkers: Number of walkers for the MCMC sampler
+        :type nwalkers: int
+        :param nsteps_warmup: Number of warmup steps for the MCMC sampler
+        :type nsteps_warmup: int
+        :param app2absmag: Function to convert between different magnitudes, argument is x = (lum, redsh) (default = indentity function w.r.t. lum)
+        :type app2absmag: function
+        :param verbose: Verbosity
+        :type verbose: int
+        :return: Source sample luminosities and redshifts
+        :rtype: (numpy.ndarray,numpy.ndarray)
+        """
+
+        # Get keyword arguments for the integration accuracy
+        epsabs = kwargs.pop('epsabs', 1e-3)
+        epsrel = kwargs.pop('epsrel', 1e-3)
+
+        # Sky area in steradian
+        sky_area_srd = sky_area / 41253. * 4 * np.pi
+
+        # Instantiate differential comoving solid volume element
+        dVdzdO = interp_dVdzdO(redsh_range, cosmology)
+
+        # The total number of sources of the integration per steradian
+        total = integrate.quad(self.redshift_density, *redsh_range, args=(lum_range, dVdzdO, app2absmag), epsabs=epsabs, epsrel=epsrel)[0]
+
+        # The total number of sources as rounded to an integer value across
+        # the sky_area specified in the input argument.
+        total = int(np.round(total * sky_area_srd))
+        if verbose > 0:
+            print('[INFO] Integration returned {} sources'.format(total))
+
+        # Dimension of the distribution to sample from is 2 (luminosity + redshift)
+        ndim = 2
+
+        # Number of effective samples needed per MCMC walker
+        neffsamples = int(np.ceil(total/nwalkers))
+
+        # Randomly initializing the initial positions for the MCMC walkers
+        np.random.seed(seed)
+        x0 = np.random.rand(ndim, nwalkers)
+        p0 = np.stack([lum_range[0]+(lum_range[1]-lum_range[0])*x0[0],
+                       redsh_range[0]+(redsh_range[1]-redsh_range[0])*x0[1]]).T
+
+        # Instantiating the MCMC sampler
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, self.qlf_mcmc_wrapper, args=[lum_range, redsh_range, cosmology, app2absmag])
+
+        # Running nsteps_warmup MCMC steps to determine the autocorrelation time which sets the total number of samples needed
+        state = sampler.run_mcmc(p0, nsteps_warmup)
+        tau = int(np.ceil(np.max(sampler.get_autocorr_time())))
+        print("Acceptance fraction: {}".format(sampler.acceptance_fraction))
+        print("Autocorrelation time: {} steps".format(tau))
+        sampler.reset()
+
+        # Running the MCMC sampler for 5*tau*neffsamples steps and only keeping every 5tau-th sample to avoid autocorrelations among the samples
+        sampler.run_mcmc(state, 5*tau*neffsamples)
+        samples = sampler.get_chain(flat=True).reshape(nwalkers*5*tau*neffsamples, ndim)
+        return samples[::5*tau,0], samples[::5*tau,1]
 
 
 class DoublePowerLawLF(LuminosityFunction):
@@ -2235,6 +2340,72 @@ class WangFeige2019SPLQLF(SinglePowerLawLF):
                                                   ref_cosmology=ref_cosmology,
                                                   cosmology = cosmology,
                                                   ref_redsh=ref_redsh)
+
+
+class Matsuoka2023DPLQLF(DoublePowerLawLF):
+    """Implementation of the type-I quasar UV(M1450) luminosity function of
+    Wang+2019 at z~6.7.
+
+    ADS reference: https://ui.adsabs.harvard.edu/abs/2019ApJ...884...30W/abstract
+
+    The luminosity function is parameterized as a double power law with the
+    luminosity variable in absolute magnitudes at 1450A, M1450.
+
+    This implementation adopts the double power law fit described in Section 5.5
+    """
+
+    def __init__(self, cosmology=None):
+        """Initialize the Wang+2019 type-I quasar UV luminosity function.
+
+        """
+
+        phi_star_z7 = Parameter(1.35e-9, 'phi_star_z6p7', one_sigma_unc=None)
+        lum_star = Parameter(-25.6, 'lum_star', one_sigma_unc=None)
+
+        alpha = Parameter(-1.2, 'gamma_one', one_sigma_unc=None)
+        beta = Parameter(-3.34, 'gamma_two', one_sigma_unc=None)
+
+        k = Parameter(-0.78, 'k')
+
+        z_ref = Parameter(7., 'z_ref')
+
+        parameters = {'phi_star_z7': phi_star_z7,
+                      'lum_star': lum_star,
+                      'alpha': alpha,
+                      'beta': beta,
+                      'k': k,
+                      'z_ref': z_ref}
+
+        param_functions = {'phi_star': self.phi_star}
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 7.
+
+        super(Matsuoka2023DPLQLF, self).__init__(parameters, param_functions,
+                                                  lum_type=lum_type,
+                                                  ref_cosmology=ref_cosmology,
+                                                  ref_redsh=ref_redsh,
+                                                  cosmology=cosmology)
+
+
+    @staticmethod
+    def phi_star(redsh, phi_star_z7, k, z_ref):
+        """Calculate the redshift dependent luminosity function normalization.
+
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param phi_star_z7: Logarithmic source density at z=7
+        :type phi_star_z7: float
+        :param k: Power law exponent of density evolution
+        :type k: float
+        :param z_ref: Reference redshift
+        :type z_ref: float
+        :return:
+        """
+
+        return phi_star_z7 * 10**(k * (redsh - z_ref))
 
 
 class WangFeige2019DPLQLF(DoublePowerLawLF):
