@@ -6,6 +6,7 @@ from astropy import units
 from scipy import integrate
 from scipy.interpolate import interp1d
 from astropy.cosmology import FlatLambdaCDM
+from astropy import constants as const
 
 import matplotlib.pyplot as plt
 
@@ -1058,7 +1059,8 @@ class LuminosityFunction(object):
     def qlf_mcmc_wrapper(self, x, lum_range, redsh_range, cosmo, app2absmag):
         """Wrapper function for the MCMC sampling routine in sample_mcmc.
 
-        :param x: Arguments of the probability density to sample from, i.e. x = (lum, redsh)
+        :param x: Arguments of the probability density to sample from,
+         i.e. x = (lum, redsh)
         :type x: tuple
         :param lum_range: Luminosity range to sample from
         :type lum_range: tuple
@@ -1066,7 +1068,8 @@ class LuminosityFunction(object):
         :type redsh_range: tuple
         :param cosmo: Cosmology
         :type cosmo: astropy.cosmology.Cosmology
-        :param app2absmag: Function to convert between different magnitudes, argument is x = (lum, redsh) (default = indentity function w.r.t. lum)
+        :param app2absmag: Function to convert between different magnitudes,
+         argument is x = (lum, redsh) (default = indentity function w.r.t. lum)
         :type app2absmag: function
         :return: Log probability given the arguments x = (lum, redsh)
         :rtype: float
@@ -1075,8 +1078,11 @@ class LuminosityFunction(object):
         # Get the separate arguments of the QLF
         lum, redsh = x[0], x[1]
 
-        # If arguments are within the specified ranges, set the log probability according to the QLF value, otherwise assign zero probability
-        if lum >= lum_range[0] and lum <= lum_range[1] and redsh >= redsh_range[0] and redsh <= redsh_range[1]:
+        # If arguments are within the specified ranges,
+        # set the log probability according to the QLF value,
+        # otherwise assign zero probability
+        if (lum >= lum_range[0] and lum <= lum_range[1] and
+                redsh >= redsh_range[0] and redsh <= redsh_range[1]):
             dVdzdO = cosmo.differential_comoving_volume(redsh).value
             return np.log(self.evaluate(app2absmag([lum, redsh]), redsh) * dVdzdO)
         else:
@@ -1084,7 +1090,8 @@ class LuminosityFunction(object):
 
 
     def sample_mcmc(self, lum_range, redsh_range, cosmology, sky_area,
-               seed=1234, nwalkers=8, nsteps_warmup=5000, app2absmag=lambda x: x[0], verbose=1, **kwargs):
+                    seed=1234, nwalkers=8, nsteps_warmup=5000,
+                    app2absmag=lambda x: x[0], verbose=1, **kwargs):
         """Sample the luminosity function over a given luminosity and
             redshift range using an MCMC sampler.
 
@@ -1102,7 +1109,8 @@ class LuminosityFunction(object):
         :type nwalkers: int
         :param nsteps_warmup: Number of warmup steps for the MCMC sampler
         :type nsteps_warmup: int
-        :param app2absmag: Function to convert between different magnitudes, argument is x = (lum, redsh) (default = indentity function w.r.t. lum)
+        :param app2absmag: Function to convert between different magnitudes,
+        argument is x = (lum, redsh) (default = identity function w.r.t. lum)
         :type app2absmag: function
         :param verbose: Verbosity
         :type verbose: int
@@ -1121,7 +1129,9 @@ class LuminosityFunction(object):
         dVdzdO = interp_dVdzdO(redsh_range, cosmology)
 
         # The total number of sources of the integration per steradian
-        total = integrate.quad(self.redshift_density, *redsh_range, args=(lum_range, dVdzdO, app2absmag), epsabs=epsabs, epsrel=epsrel)[0]
+        total = integrate.quad(self.redshift_density, *redsh_range,
+                               args=(lum_range, dVdzdO, app2absmag),
+                               epsabs=epsabs, epsrel=epsrel)[0]
 
         # The total number of sources as rounded to an integer value across
         # the sky_area specified in the input argument.
@@ -1142,19 +1152,22 @@ class LuminosityFunction(object):
                        redsh_range[0]+(redsh_range[1]-redsh_range[0])*x0[1]]).T
 
         # Instantiating the MCMC sampler
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, self.qlf_mcmc_wrapper, args=[lum_range, redsh_range, cosmology, app2absmag])
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, self.qlf_mcmc_wrapper,
+                                        args=[lum_range, redsh_range, cosmology, app2absmag])
 
-        # Running nsteps_warmup MCMC steps to determine the autocorrelation time which sets the total number of samples needed
+        # Running nsteps_warmup MCMC steps to determine the autocorrelation
+        # time which sets the total number of samples needed
         state = sampler.run_mcmc(p0, nsteps_warmup)
         tau = int(np.ceil(np.max(sampler.get_autocorr_time())))
         print("Acceptance fraction: {}".format(sampler.acceptance_fraction))
         print("Autocorrelation time: {} steps".format(tau))
         sampler.reset()
 
-        # Running the MCMC sampler for 5*tau*neffsamples steps and only keeping every 5tau-th sample to avoid autocorrelations among the samples
+        # Running the MCMC sampler for 5*tau*neffsamples steps and only keeping
+        # every 5tau-th sample to avoid autocorrelations among the samples
         sampler.run_mcmc(state, 5*tau*neffsamples)
         samples = sampler.get_chain(flat=True).reshape(nwalkers*5*tau*neffsamples, ndim)
-        return samples[::5*tau,0], samples[::5*tau,1]
+        return samples[::5*tau, 0], samples[::5*tau, 1]
 
 
 class DoublePowerLawLF(LuminosityFunction):
@@ -1781,7 +1794,7 @@ class SchechterLF(LuminosityFunction):
 
         return mag_schechter_function(lum, phi_star, mag_star, alpha)
 
-class ShenXuejian2020QLF(DoublePowerLawLF):
+class ShenXuejian2020QLF_b(DoublePowerLawLF):
     """
     Shen+2020 bolometric quasar luminosity function; global fit B
     """
@@ -1859,7 +1872,7 @@ class ShenXuejian2020QLF(DoublePowerLawLF):
 
         lum_type = 'bolometric'
 
-        super(ShenXuejian2020QLF, self).__init__(parameters, param_functions,
+        super(ShenXuejian2020QLF_b, self).__init__(parameters, param_functions,
                                              lum_type=lum_type)
 
     @staticmethod
@@ -1954,6 +1967,190 @@ class ShenXuejian2020QLF(DoublePowerLawLF):
 
         phi_star = main_parameter_values['phi_star']
         lum_star = main_parameter_values['lum_star']
+        # convert to erg/s
+        lum_star = lum_star * const.L_sun.to(units.erg/units.s).value
+
+        alpha = main_parameter_values['alpha']
+        beta = main_parameter_values['beta']
+
+        return lum_double_power_law(np.power(10, lum), phi_star, lum_star,
+                                              alpha, beta)
+
+
+class ShenXuejian2020QLF_a(DoublePowerLawLF):
+    """
+    Shen+2020 bolometric quasar luminosity function; global fit A
+    """
+
+
+    def __init__(self):
+        """
+
+        """
+
+
+        # Parameters
+
+        # alpha
+        a0 = Parameter(0.8569, 'a0',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+        a1 = Parameter(-0.2614, 'a1',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+        a2 = Parameter(0.02, 'a2',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+
+        # beta
+        b0 = Parameter(2.5375, 'b0',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+        b1 = Parameter(-1.0425, 'b1',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+        b2 = Parameter(1.1201, 'b2',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+
+        # log L_star
+        c0 = Parameter(13.0088, 'c0',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+        c1 = Parameter(-0.5759, 'c1',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+        c2 = Parameter(0.4554, 'c2',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+
+        # log phi_star
+        d0 = Parameter(-3.5426, 'd0',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+        d1 = Parameter(-0.3936, 'd1',
+                       # one_sigma_unc=[0.06,0.06]
+                       )
+
+        z_ref = Parameter(2.0, 'z_ref')
+
+        parameters = {'a0':a0,
+                      'a1':a1,
+                      'a2':a2,
+                      'b0':b0,
+                      'b1':b1,
+                      'b2':b2,
+                      'c0':c0,
+                      'c1':c1,
+                      'c2':c2,
+                      'd0':d0,
+                      'd1':d1,
+                      'z_ref':z_ref}
+
+        param_functions = {'alpha': self.alpha,
+                           'beta': self.beta,
+                           'lum_star': self.lum_star,
+                           'phi_star': self.phi_star
+                           }
+
+        lum_type = 'bolometric'
+
+        super(ShenXuejian2020QLF_a, self).__init__(parameters, param_functions,
+                                             lum_type=lum_type)
+
+    @staticmethod
+    def alpha(redsh, a0, a1, a2):
+        """
+
+        :param redsh:
+        :param a0:
+        :param a1:
+        :param z_ref:
+        :return:
+        """
+
+
+        T0 = 1
+        T1 = (1+redsh)
+        T2 = 2 * (1+redsh)**2 - 1
+
+        gamma_1 = a0*T0 + a1*T1 + a2*T2
+
+
+        return gamma_1
+
+    @staticmethod
+    def beta(redsh, b0, b1, b2, z_ref):
+        """
+
+        :param redsh:
+        :param b0:
+        :param b1:
+        :param b2:
+        :param z_ref:
+        :return:
+        """
+
+        zterm = (1. + redsh) / (1. + z_ref)
+
+        return 2 * b0 / (zterm ** b1 + zterm ** b2)
+
+    @staticmethod
+    def lum_star(redsh, c0, c1, c2, z_ref):
+        """
+
+        :param redsh:
+        :param c0:
+        :param c1:
+        :param c2:
+        :param z_ref:
+        :return:
+        """
+
+        zterm = (1. + redsh) / (1. + z_ref)
+
+        log_lum_star = 2 * c0 / (zterm ** c1 + zterm ** c2)
+
+        return 10**log_lum_star # in L_sun
+
+    @staticmethod
+    def phi_star(redsh, d0, d1):
+
+        T0 = 1
+        T1 = (1+redsh)
+
+        log_phi_star = d0*T0 + d1*T1
+
+        return 10**log_phi_star
+
+    def evaluate(self, lum, redsh, parameters=None):
+        """Evaluate the Shen+2020 bolometric luminosity function.
+
+        Function to be evaluated: atelier.lumfun.lum_double_power_law()
+
+        :param lum: Luminosity for evaluation
+        :type lum: float or numpy.ndarray
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param parameters: Dictionary of parameters used for this specific
+            calculation. This does not replace the parameters with which the
+            luminosity function was initialized. (default=None)
+        :type parameters: dict(atelier.lumfun.Parameters)
+        :return: Luminosity function value
+        :rtype: (numpy.ndarray,numpy.ndarray)
+        """
+
+        if parameters is None:
+            parameters = self.parameters.copy()
+
+        main_parameter_values = self.evaluate_main_parameters(lum, redsh,
+                                                        parameters=parameters)
+
+        phi_star = main_parameter_values['phi_star']
+        lum_star = main_parameter_values['lum_star']
+        # convert to erg/s
+        lum_star = lum_star * const.L_sun.to(units.erg/units.s).value
+
         alpha = main_parameter_values['alpha']
         beta = main_parameter_values['beta']
 
@@ -4830,6 +5027,20 @@ kokorev2024z7_bol_arxiv = \
  'lum_unit': units.mag,
  'ref_cosmology': FlatLambdaCDM(H0=70, Om0=0.3),
  'redshift': 7.5}
+
+
+
+kocevskiz2024_7p5_arxiv = \
+{'lum': np.array([-17.0, -18.0, -19.0, -20.0, -21.0, -22.0]),
+ 'log_phi': np.array([-4.53, -4.61, -4.87, -5.23, -5.87, -6.35]),
+ 'phi_unit': units.Mpc ** -3 * units.mag ** -1,
+ 'sigma_log_phi': np.array([[0.13, 0.08, 0.08, 0.14, 0.34, 0.76],
+                        [0.13, 0.08, 0.09, 0.13, 0.29, 0.52]]),
+ 'lum_type': 'M1450',  # should be MUV
+ 'lum_unit': units.mag,
+ 'ref_cosmology': FlatLambdaCDM(H0=67.66, Om0=0.3111),
+ 'redshift': 7}
+
 
 
 def verification_plots_kulkarni2019QLF():
