@@ -586,11 +586,15 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
 
         self.get_selfun_from_grid()
 
-    def plot_grid(self, title=None):
+    def plot_grid(self, title=None, save=False, save_filename=None):
         """Plot the selection function grid as a map of magnitude and redshift.
 
         :param title: Title of the plot
         :type title: string
+        :param save: Boolean to indicate whether to save the plot
+        :type save: bool
+        :param save_filename: Filename to save the plot to
+        :type save_filename: string
         :return: None
         """
 
@@ -619,7 +623,10 @@ class QsoSelectionFunctionGrid(QsoSelectionFunction):
             fig.suptitle(r'$\textrm{' + title + '}$', fontsize=18)
             fig.subplots_adjust(top=0.93)
 
-        plt.show()
+        if save and save_filename is not None:
+            plt.savefig(save_filename)
+        else:
+            plt.show()
 
     def evaluate(self, mag, redsh):
         """Evaluate the interpolation of the selection function grid at

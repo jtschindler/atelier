@@ -29,10 +29,10 @@ def set_paper_defaults():
 
 
 
-def set_presentation_defaults():
+def set_presentation_defaults(weight=500):
     # Defining the presentation plotting style
 
-    matplotlib.rc('font', weight=500)
+    matplotlib.rc('font', weight=weight)
     matplotlib.rc('font', **{'family': 'sans-serif', 'sans-serif': ['Roboto']})
     matplotlib.rcParams['mathtext.fontset'] = 'custom'
     matplotlib.rcParams['mathtext.it'] = 'Roboto'

@@ -53,6 +53,25 @@ def mag_schechter_function(mag, phi_star, mag_star, alpha):
 
     return phi_star*np.log(10)/2.5 * power_law * exponential
 
+
+def lum_schechter_function(lum, phi_star, lum_star, alpha):
+    """ Evaluate a Schechter luminosity function as a function of luminosity.
+
+    :param lum: Logarithmic luminosity
+    :param phi_star:
+    :param lum_star:
+    :param alpha:
+    :return:
+    """
+
+    lum = pow(10, lum)
+
+    power_law = pow(lum / lum_star, alpha+1)
+    exponential = np.exp(-lum / lum_star)
+
+    return np.log(10) * phi_star * power_law * exponential
+
+
 def mag_double_power_law(mag, phi_star, mag_star, alpha, beta):
     """Evaluate a broken double power law luminosity function as a function
     of magnitude.
@@ -1232,6 +1251,7 @@ class DoublePowerLawLF(LuminosityFunction):
         alpha = main_parameter_values['alpha']
         beta = main_parameter_values['beta']
 
+
         # TODO: Try to precalculate factors in init for better performance
         if self.cosmology is not None and self.ref_cosmology is not \
                 None:
@@ -1793,6 +1813,61 @@ class SchechterLF(LuminosityFunction):
         alpha = main_parameter_values['alpha']
 
         return mag_schechter_function(lum, phi_star, mag_star, alpha)
+
+
+class SchechterLFLum(LuminosityFunction):
+    """
+    Schechter luminosity function
+    """
+
+    def __init__(self, parameters, param_functions, lum_type=None,
+                 ref_cosmology=None, ref_redsh=None, cosmology=None,
+                 verbose=1):
+        """Initialize the single power law luminosity function class.
+        """
+
+        self.main_parameters = ['phi_star', 'alpha', 'lum_star']
+
+        # Initialize the parent class
+        super(SchechterLFLum, self).__init__(parameters, param_functions,
+                                               self.main_parameters,
+                                               lum_type=lum_type,
+                                               ref_cosmology=ref_cosmology,
+                                               ref_redsh=ref_redsh,
+                                               cosmology=cosmology,
+                                               verbose=verbose)
+
+    def evaluate(self, lum, redsh, parameters=None):
+        """Evaluate the Schechter function as a function of magnitude ("lum")
+        and redshift ("redsh").
+
+        Function to be evaluated: atelier.lumfun.mag_schechter
+
+        :param lum: Luminosity for evaluation
+        :type lum: float or numpy.ndarray
+        :param redsh: Redshift for evaluation
+        :type redsh: float or numpy.ndarray
+        :param parameters: Dictionary of parameters used for this specific
+            calculation. This does not replace the parameters with which the
+            luminosity function was initialized. (default=None)
+        :type parameters: dict(atelier.lumfun.Parameters)
+        :return: Luminosity function value
+        :rtype: (numpy.ndarray,numpy.ndarray)
+        """
+
+        if parameters is None:
+            parameters = self.parameters.copy()
+
+        main_parameter_values = self.evaluate_main_parameters(lum, redsh,
+                                                              parameters=parameters)
+
+        phi_star = main_parameter_values['phi_star']
+        lum_star = main_parameter_values['lum_star']
+        alpha = main_parameter_values['alpha']
+
+        return lum_schechter_function(lum, phi_star, lum_star, alpha)
+
+
 
 class ShenXuejian2020QLF_b(DoublePowerLawLF):
     """
@@ -4287,6 +4362,96 @@ class Kulkarni2019QLF(DoublePowerLawLF):
 
         return np.polynomial.polynomial.polyval(1+redsh, c=[c3_0, c3_1])
 
+
+class Meyer2024O3LF_z7(SchechterLFLum):
+    """Implementation of the [OIII] 5007 luminosity function of
+        Meyer+2024 at z~7.
+
+        ADS reference: https://ui.adsabs.harvard.edu/abs/2024arXiv240505111M/abstract
+
+        The luminosity function is parameterized as a schechter function.
+
+        This implementation adopts the results presented in Section 4.2 (main
+         text)
+        """
+    def __init__(self, cosmology=None):
+
+        phi_star = Parameter(10**(-4.06), 'phi_star')
+        alpha = Parameter(-2.06, 'alpha')
+        log_lum_star = Parameter(10**42.98, 'lum_star')
+
+        parameters = {'phi_star': phi_star,
+                      'alpha': alpha,
+                      'lum_star': log_lum_star}
+
+        param_functions = {}
+
+        lum_type = 'M1450'
+
+        ref_cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+        ref_redsh = 7.1
+
+
+        super(Meyer2024O3LF_z7, self).__init__(parameters, param_functions,
+                                                lum_type=lum_type,
+                                                ref_cosmology=ref_cosmology,
+                                                ref_redsh=ref_redsh,
+                                                cosmology=cosmology)
+
+
+class Bouwens2022LF(SchechterLF):
+
+    def __init__(self, verbose=0):
+
+        parameters = {}
+
+        param_functions = {'alpha': self.alpha,
+                           'mag_star': self.mag_star,
+                           'phi_star': self.phi_star
+                           }
+
+        lum_type = 'UV'
+
+        super(Bouwens2022LF, self).__init__(parameters, param_functions,
+                                                 lum_type=lum_type,
+                                            verbose=verbose)
+
+
+    @staticmethod
+    def mag_star(redsh):
+
+        zt = 2.42
+        if type(redsh) == np.ndarray:
+            redsh_row = redsh[0, :]
+            mag_star_row = np.zeros_like(redsh_row)
+            for i, i_redsh in enumerate(redsh_row):
+                if i_redsh < zt:
+                    mag_star_row[i] = -20.87 + -1.10*(i_redsh-zt)
+                else:
+                    mag_star_row[i] = -21.04 + -0.05*(i_redsh-6)
+
+            return np.tile(mag_star_row, (redsh.shape[0], 1))
+
+        elif type(redsh) == float or type(redsh) == np.float64:
+            if redsh < zt:
+                return -20.87 + -1.10*(redsh-zt)
+            else:
+                return -21.04 + -0.05*(redsh-6)
+
+    @staticmethod
+    def phi_star(redsh):
+
+        log_phi_star = np.log10(
+            0.38 * 1e-3 * 10 ** (-0.35 * (redsh - 6.) - 0.027 * (redsh - 6.) **
+                                 2))
+
+        return 10**log_phi_star
+
+
+    @staticmethod
+    def alpha(redsh):
+
+            return -1.95 - 0.11*(redsh-6.)
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------

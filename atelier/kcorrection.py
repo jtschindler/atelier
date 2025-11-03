@@ -387,11 +387,11 @@ class KCorrectionGrid(KCorrection):
         elif statistic == 'mean':
             self.kcorrgrid = np.nanmean(kcorrarray, axis=-1)
 
-        self.kcorrgrid_mad = stats.median_absolute_deviation(kcorrarray,
+        self.kcorrgrid_mad = stats.median_abs_deviation(kcorrarray,
                                                              axis=-1,
                                                              nan_policy='omit')
 
-        self.kcorrgrid_mad_all = stats.median_absolute_deviation(kcorrarray,
+        self.kcorrgrid_mad_all = stats.median_abs_deviation(kcorrarray,
                                                              axis=None,
                                                              nan_policy='omit')
 
@@ -471,7 +471,8 @@ class KCorrectionGrid(KCorrection):
 
         plt.show()
 
-    def plot_grid(self, title=None, ylabel=None, show_mad=False):
+    def plot_grid(self, title=None, ylabel=None, show_mad=False,
+                  save=False, save_filename=None):
         """Plot the K-correction grid values using matplotlib.
 
         :param title: Title of the plot
@@ -487,9 +488,9 @@ class KCorrectionGrid(KCorrection):
         """
 
         # Set up figure
-        fig = plt.figure(num=None, figsize=(5.5, 6), dpi=120)
+        fig = plt.figure(num=None, figsize=(6, 6), dpi=120)
         ax = fig.add_subplot(1, 1, 1)
-        fig.subplots_adjust(left=0.16, bottom=0.1, right=0.81, top=0.98)
+        fig.subplots_adjust(left=0.18, bottom=0.1, right=0.78, top=0.98)
 
         if show_mad:
             grid = self.kcorrgrid_mad
@@ -501,9 +502,9 @@ class KCorrectionGrid(KCorrection):
         cax = plt.pcolormesh(self.redsh_mid, self.mag_mid, grid)
 
         if title is not None:
-            cbar_ax = fig.add_axes([0.83, 0.095, 0.04, 0.83])
+            cbar_ax = fig.add_axes([0.79, 0.095, 0.04, 0.83])
         else:
-            cbar_ax = fig.add_axes([0.83, 0.095, 0.04, 0.89])
+            cbar_ax = fig.add_axes([0.79, 0.095, 0.04, 0.89])
         cbar_ax.tick_params(labelsize=15)
         fig.colorbar(cax, cax=cbar_ax).set_label(label=clabel,
                                               size=20)
@@ -520,7 +521,10 @@ class KCorrectionGrid(KCorrection):
             fig.suptitle(r'$\textrm{' + title + '}$', fontsize=18)
             fig.subplots_adjust(top=0.93)
 
-        plt.show()
+        if save and save_filename is not None:
+            plt.savefig(save_filename)
+        else:
+            plt.show()
 
     def plot_kcorrection(self, redsh_arr=None, mag_arr=None, ylabel=None,
                          save=False, save_filename=None,
@@ -558,7 +562,7 @@ class KCorrectionGrid(KCorrection):
         # Set up figure
         fig = plt.figure(num=None, figsize=(6, 4), dpi=120)
         ax = fig.add_subplot(1, 1, 1)
-        fig.subplots_adjust(left=0.17, bottom=0.15, right=0.95, top=0.95)
+        fig.subplots_adjust(left=0.19, bottom=0.15, right=0.95, top=0.95)
 
         # Set up colors
         n = len(mag_arr)
